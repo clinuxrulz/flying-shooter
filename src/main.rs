@@ -366,6 +366,12 @@ fn move_players(
         let (input, _) = inputs[player.handle];
         let rotate_by = rotate_by(input);
         face_dir.0 += rotate_by;
+        while face_dir.0 < 0.0 {
+            face_dir.0 += 2.0 * std::f32::consts::PI;
+        }
+        while face_dir.0 >= 2.0 * std::f32::consts::PI {
+            face_dir.0 -= 2.0 * std::f32::consts::PI;
+        }
         transform.rotation = Quat::from_axis_angle(Vec3::new(0., 0., 1.), face_dir.0);
     }
     for (mut transform, mut move_direction, _, player) in &mut players {
