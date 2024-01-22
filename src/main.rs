@@ -1,5 +1,5 @@
 use args::Args;
-use bevy::{prelude::*, render::{camera::ScalingMode, render_resource::AsBindGroup}, sprite::MaterialMesh2dBundle};
+use bevy::{prelude::*, render::camera::ScalingMode};
 use bevy_asset_loader::prelude::*;
 use bevy_egui::{
     egui::{self, Align2, Color32, FontId, RichText},
@@ -192,8 +192,6 @@ fn setup(mut commands: Commands) {
 
 fn spawn_players(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     players: Query<Entity, With<Player>>,
     bullets: Query<Entity, With<Bullet>>,
 ) {
@@ -207,13 +205,19 @@ fn spawn_players(
         commands.entity(bullet).despawn_recursive();
     }
 
-    let mut path_builder = PathBuilder::new();
-    path_builder.move_to(Vec2::new(0.0, 0.0));
-    path_builder.line_to(Vec2::new(1.0, -0.3));
-    path_builder.line_to(Vec2::new(0.75, 0.0));
-    path_builder.line_to(Vec2::new(1.0 ,0.3));
-    path_builder.close();
-    let path = path_builder.build();
+    let make_ship_path = || {
+        let mut path_builder = PathBuilder::new();
+        path_builder.move_to(Vec2::new(0.0, 0.0));
+        path_builder.line_to(Vec2::new(1.0, -0.3));
+        path_builder.line_to(Vec2::new(0.75, 0.0));
+        path_builder.line_to(Vec2::new(1.0 ,0.3));
+        path_builder.close();
+        let path = path_builder.build();
+        return path;
+    };
+
+    let p1_path = make_ship_path();
+    let p2_path = make_ship_path();
 
     // Player 1
     commands
@@ -221,25 +225,8 @@ fn spawn_players(
             Player { handle: 0 },
             BulletReady(true),
             MoveDir(-Vec2::X),
-            /*
-            SpriteBundle {
-                transform: Transform::from_translation(Vec3::new(-2., 0., 100.)),
-                sprite: Sprite {
-                    color: Color::rgb(0., 0.47, 1.),
-                    custom_size: Some(Vec2::new(1., 1.)),
-                    ..default()
-                },
-                ..default()
-            },*/
-            /* 
-            MaterialMesh2dBundle {
-                mesh: meshes.add(shape::Circle::new(1.).into()).into(),
-                material: materials.add(ColorMaterial::from(Color::PURPLE)),
-                ..default()
-            },*/
-
             ShapeBundle {
-                path,
+                path: p1_path,
                 spatial: SpatialBundle {
                     transform: Transform::from_translation(Vec3::new(-2., 0., 100.)),
                     ..default()
@@ -258,15 +245,16 @@ fn spawn_players(
             Player { handle: 1 },
             BulletReady(true),
             MoveDir(-Vec2::X),
-            SpriteBundle {
-                transform: Transform::from_translation(Vec3::new(2., 0., 100.)),
-                sprite: Sprite {
-                    color: Color::rgb(0., 0.4, 0.),
-                    custom_size: Some(Vec2::new(1., 1.)),
+            ShapeBundle {
+                path: p2_path,
+                spatial: SpatialBundle {
+                    transform: Transform::from_translation(Vec3::new(2., 0., 100.)),
                     ..default()
                 },
                 ..default()
             },
+            Stroke::new(Color::BLACK, 0.05),
+            Fill::color(Color::RED),
         ))
         .add_rollback();
 }
