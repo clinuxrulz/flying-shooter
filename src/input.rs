@@ -44,10 +44,10 @@ const ROTATE_SPEED: f32 = 0.1;
 
 pub fn rotate_by(input: u8) -> f32 {
     if (input & INPUT_LEFT) != 0 {
-        return -ROTATE_SPEED;
+        return ROTATE_SPEED;
     }
     if (input & INPUT_RIGHT) != 0 {
-        return ROTATE_SPEED;
+        return -ROTATE_SPEED;
     }
     return 0.0;
 }
