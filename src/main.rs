@@ -208,10 +208,10 @@ fn spawn_players(
 
     let make_ship_path = || {
         let mut path_builder = PathBuilder::new();
-        path_builder.move_to(Vec2::new(0.0, 0.0));
-        path_builder.line_to(Vec2::new(1.0, -0.3));
-        path_builder.line_to(Vec2::new(0.75, 0.0));
-        path_builder.line_to(Vec2::new(1.0 ,0.3));
+        path_builder.move_to(Vec2::new(-0.5, 0.0));
+        path_builder.line_to(Vec2::new(0.5, -0.3));
+        path_builder.line_to(Vec2::new(0.25, 0.0));
+        path_builder.line_to(Vec2::new(0.5 ,0.3));
         path_builder.close();
         let path = path_builder.build();
         return path;
