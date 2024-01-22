@@ -83,6 +83,7 @@ fn main() {
         .rollback_component_with_copy::<BulletReady>()
         .rollback_component_with_copy::<Player>()
         .rollback_component_with_copy::<MoveDir>()
+        .rollback_component_with_copy::<FaceDir>()
         .rollback_component_with_clone::<Sprite>()
         .rollback_component_with_clone::<GlobalTransform>()
         .rollback_component_with_clone::<Handle<Image>>()
@@ -224,7 +225,8 @@ fn spawn_players(
         .spawn((
             Player { handle: 0 },
             BulletReady(true),
-            MoveDir(-Vec2::X),
+            MoveDir(Vec2::X),
+            FaceDir(0.0),
             ShapeBundle {
                 path: p1_path,
                 spatial: SpatialBundle {
@@ -245,6 +247,7 @@ fn spawn_players(
             Player { handle: 1 },
             BulletReady(true),
             MoveDir(-Vec2::X),
+            FaceDir(std::f32::consts::PI),
             ShapeBundle {
                 path: p2_path,
                 spatial: SpatialBundle {
@@ -355,11 +358,17 @@ fn handle_ggrs_events(mut session: ResMut<Session<Config>>) {
 }
 
 fn move_players(
-    mut players: Query<(&mut Transform, &mut MoveDir, &Player)>,
+    mut players: Query<(&mut Transform, &mut MoveDir, &mut FaceDir, &Player)>,
     inputs: Res<PlayerInputs<Config>>,
     time: Res<Time>,
 ) {
-    for (mut transform, mut move_direction, player) in &mut players {
+    for (mut transform, _, mut face_dir, player) in &mut players {
+        let (input, _) = inputs[player.handle];
+        let rotate_by = rotate_by(input);
+        face_dir.0 += rotate_by;
+        transform.rotation = Quat::from_axis_angle(Vec3::new(0., 0., 1.), face_dir.0);
+    }
+    for (mut transform, mut move_direction, _, player) in &mut players {
         let (input, _) = inputs[player.handle];
 
         let direction = direction(input);
