@@ -52,6 +52,10 @@ pub fn rotate_by(input: u8) -> f32 {
     return 0.0;
 }
 
+pub fn thrust(input: u8) -> bool {
+    input & INPUT_UP != 0
+}
+
 pub fn direction(input: u8) -> Vec2 {
     let mut direction = Vec2::ZERO;
     if input & INPUT_UP != 0 {

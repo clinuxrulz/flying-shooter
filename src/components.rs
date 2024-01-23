@@ -18,6 +18,34 @@ pub struct MoveDir(pub Vec2);
 #[derive(Component, Clone, Copy)]
 pub struct FaceDir(pub f32);
 
+#[derive(Component, Clone, Copy)]
+pub struct Velocity(pub Vec2);
+
+#[derive(Component, Clone, Copy)]
+pub struct Acceleration(pub Vec2);
+
+pub fn checksum_face_dir(face_dir: &FaceDir) -> u64 {
+    return face_dir.0.to_bits().into();
+}
+
+pub fn checksum_velocity(velocity: &Velocity) -> u64 {
+    let mut hasher = FixedState.build_hasher();
+
+    velocity.0.x.to_bits().hash(&mut hasher);
+    velocity.0.y.to_bits().hash(&mut hasher);
+
+    hasher.finish()
+}
+
+pub fn checksum_acceleration(acceleration: &Acceleration) -> u64 {
+    let mut hasher = FixedState.build_hasher();
+
+    acceleration.0.x.to_bits().hash(&mut hasher);
+    acceleration.0.y.to_bits().hash(&mut hasher);
+
+    hasher.finish()
+}
+
 pub fn checksum_transform(transform: &Transform) -> u64 {
     let mut hasher = FixedState.build_hasher();
 

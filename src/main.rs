@@ -13,6 +13,8 @@ use components::*;
 use input::*;
 use bevy_prototype_lyon::prelude::*;
 
+const THRUST_ACCELERATION: f32 = 0.2;
+
 mod args;
 mod components;
 mod input;
@@ -84,6 +86,8 @@ fn main() {
         .rollback_component_with_copy::<Player>()
         .rollback_component_with_copy::<MoveDir>()
         .rollback_component_with_copy::<FaceDir>()
+        .rollback_component_with_copy::<Velocity>()
+        .rollback_component_with_copy::<Acceleration>()
         .rollback_component_with_clone::<Sprite>()
         .rollback_component_with_clone::<GlobalTransform>()
         .rollback_component_with_clone::<Handle<Image>>()
@@ -91,6 +95,9 @@ fn main() {
         .rollback_component_with_clone::<InheritedVisibility>()
         .rollback_component_with_clone::<ViewVisibility>()
         .checksum_component::<Transform>(checksum_transform)
+        .checksum_component::<FaceDir>(checksum_face_dir)
+        .checksum_component::<Velocity>(checksum_velocity)
+        .checksum_component::<Acceleration>(checksum_acceleration)
         .insert_resource(ClearColor(Color::rgb(0.53, 0.53, 0.53)))
         .init_resource::<RoundEndTimer>()
         .init_resource::<Scores>()
@@ -208,10 +215,10 @@ fn spawn_players(
 
     let make_ship_path = || {
         let mut path_builder = PathBuilder::new();
-        path_builder.move_to(Vec2::new(-0.5, 0.0));
-        path_builder.line_to(Vec2::new(0.5, -0.3));
-        path_builder.line_to(Vec2::new(0.25, 0.0));
-        path_builder.line_to(Vec2::new(0.5 ,0.3));
+        path_builder.move_to(Vec2::new(0.5, 0.0));
+        path_builder.line_to(Vec2::new(-0.5 ,0.3));
+        path_builder.line_to(Vec2::new(-0.25, 0.0));
+        path_builder.line_to(Vec2::new(-0.5, -0.3));
         path_builder.close();
         let path = path_builder.build();
         return path;
@@ -227,6 +234,8 @@ fn spawn_players(
             BulletReady(true),
             MoveDir(Vec2::X),
             FaceDir(0.0),
+            Velocity(Vec2::ZERO),
+            Acceleration(Vec2::ZERO),
             ShapeBundle {
                 path: p1_path,
                 spatial: SpatialBundle {
@@ -248,6 +257,8 @@ fn spawn_players(
             BulletReady(true),
             MoveDir(-Vec2::X),
             FaceDir(std::f32::consts::PI),
+            Velocity(Vec2::ZERO),
+            Acceleration(Vec2::ZERO),
             ShapeBundle {
                 path: p2_path,
                 spatial: SpatialBundle {
@@ -358,11 +369,11 @@ fn handle_ggrs_events(mut session: ResMut<Session<Config>>) {
 }
 
 fn move_players(
-    mut players: Query<(&mut Transform, &mut MoveDir, &mut FaceDir, &Player)>,
+    mut players: Query<(&mut Transform, &mut Velocity, &mut Acceleration, &mut FaceDir, &Player)>,
     inputs: Res<PlayerInputs<Config>>,
     time: Res<Time>,
 ) {
-    for (mut transform, _, mut face_dir, player) in &mut players {
+    for (mut transform, mut velocity , mut acceleration, mut face_dir, player) in &mut players {
         let (input, _) = inputs[player.handle];
         let rotate_by = rotate_by(input);
         face_dir.0 += rotate_by;
@@ -373,20 +384,16 @@ fn move_players(
             face_dir.0 -= 2.0 * std::f32::consts::PI;
         }
         transform.rotation = Quat::from_axis_angle(Vec3::new(0., 0., 1.), face_dir.0);
-    }
-    for (mut transform, mut move_direction, _, player) in &mut players {
-        let (input, _) = inputs[player.handle];
-
-        let direction = direction(input);
-
-        if direction == Vec2::ZERO {
-            continue;
+        if thrust(input) {
+            acceleration.0 = Vec2::new(face_dir.0.cos(), face_dir.0.sin()) * THRUST_ACCELERATION;
+        } else {
+            acceleration.0 = Vec2::ZERO;
         }
-
-        move_direction.0 = direction;
-
+        velocity.0 += acceleration.0 * time.delta_seconds();
+    }
+    for (mut transform, velocity, _, _, player) in &mut players {
         let move_speed = 7.;
-        let move_delta = direction * move_speed * time.delta_seconds();
+        let move_delta = velocity.0 * move_speed * time.delta_seconds();
 
         let old_pos = transform.translation.xy();
         let limit = Vec2::splat(MAP_SIZE as f32 / 2. - 0.5);
