@@ -420,11 +420,13 @@ fn fire_bullets(
     mut commands: Commands,
     inputs: Res<PlayerInputs<Config>>,
     images: Res<ImageAssets>,
-    mut players: Query<(&Transform, &Player, &mut BulletReady, &MoveDir)>,
+    mut players: Query<(&Transform, &Player, &mut BulletReady, &FaceDir)>,
 ) {
-    for (transform, player, mut bullet_ready, move_dir) in &mut players {
+    for (transform, player, mut bullet_ready, face_dir) in &mut players {
         let (input, _) = inputs[player.handle];
         if fire(input) && bullet_ready.0 {
+            let move_dir: MoveDir = MoveDir(Vec2::new(face_dir.0.cos(), face_dir.0.sin()));
+            let move_dir = &move_dir;
             let player_pos = transform.translation.xy();
             let pos = player_pos + move_dir.0 * PLAYER_RADIUS + BULLET_RADIUS;
             commands
