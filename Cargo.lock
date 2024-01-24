@@ -2341,6 +2341,7 @@ dependencies = [
  "bevy_prototype_lyon",
  "bevy_roll_safe",
  "clap",
+ "virtual_joystick",
 ]
 
 [[package]]
@@ -5385,6 +5386,16 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "virtual_joystick"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7de739667555d470998855c0acdb8532b442e003363426e64c231ad0e180c6de"
+dependencies = [
+ "bevy",
+ "serde",
+]
 
 [[package]]
 name = "waitgroup"

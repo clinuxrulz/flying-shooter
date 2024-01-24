@@ -1,6 +1,7 @@
 use crate::Config;
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{LocalInputs, LocalPlayers};
+use virtual_joystick::*;
 
 const INPUT_UP: u8 = 1 << 0;
 const INPUT_DOWN: u8 = 1 << 1;
@@ -12,8 +13,12 @@ pub fn read_local_inputs(
     mut commands: Commands,
     keys: Res<Input<KeyCode>>,
     local_players: Res<LocalPlayers>,
+    mut joystick: EventReader<VirtualJoystickEvent<crate::JoystickControllerID>>,
 ) {
     let mut local_inputs = HashMap::new();
+
+    for j in joystick.read() {
+    }
 
     for handle in &local_players.0 {
         let mut input = 0u8;

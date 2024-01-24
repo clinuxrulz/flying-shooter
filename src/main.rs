@@ -12,6 +12,15 @@ use clap::Parser;
 use components::*;
 use input::*;
 use bevy_prototype_lyon::prelude::*;
+use virtual_joystick::*;
+
+// ID for joysticks
+#[derive(Default, Reflect, Hash, Clone, PartialEq, Eq)]
+pub enum JoystickControllerID {
+    #[default]
+    Joystick1,
+    Joystick2,
+}
 
 const THRUST_ACCELERATION: f32 = 0.2;
 
@@ -77,6 +86,7 @@ fn main() {
             GgrsPlugin::<Config>::default(),
             EguiPlugin,
             ShapePlugin,
+            VirtualJoystickPlugin::<JoystickControllerID>::default(),
         ))
         .add_ggrs_state::<RollbackState>()
         .rollback_resource_with_clone::<RoundEndTimer>()
@@ -158,7 +168,7 @@ fn p2p_mode(args: Res<Args>) -> bool {
     !args.synctest
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Horizontal lines
     for i in 0..=MAP_SIZE {
         commands.spawn(SpriteBundle {
@@ -196,6 +206,32 @@ fn setup(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
     camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(10.);
     commands.spawn(camera_bundle);
+
+    // Spawn Virtual Joystick at horizontal center
+    create_joystick(
+        &mut commands,
+        asset_server.load("knob.png"),
+        asset_server.load("outline.png"),
+        None,
+        None,
+        Some(Color::ORANGE_RED.with_a(0.3)),
+        Vec2::new(75., 75.),
+        Vec2::new(150., 150.),
+        VirtualJoystickNode {
+            dead_zone: 0.,
+            id: "UniqueJoystick".to_string(),
+            axis: VirtualJoystickAxis::Both,
+            behaviour: VirtualJoystickType::Fixed,
+        },
+        Style {
+            width: Val::Px(150.),
+            height: Val::Px(150.),
+            position_type: PositionType::Absolute,
+            left: Val::Percent(10.),
+            bottom: Val::Percent(10.),
+            ..default()
+        },
+    );
 }
 
 fn spawn_players(
