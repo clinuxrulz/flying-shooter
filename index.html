@@ -1,8 +1,10 @@
 <html>
     <head></head>
     <body>
+	<script src="//cdn.jsdelivr.net/npm/eruda"></script>
+<script>eruda.init();</script>
         <script type="module">
-            import init, { run_game } from "./extreme_bevy.js";
+            import init, { run_game } from "./pkg/extreme_bevy.js";
 
             async function start() {
                 await init();
