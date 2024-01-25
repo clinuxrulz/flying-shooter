@@ -1,4 +1,4 @@
-use crate::Config;
+use crate::game::Config;
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{LocalInputs, LocalPlayers};
 use virtual_joystick::*;
