@@ -65,7 +65,7 @@ extern "C" {
     #[wasm_bindgen(inline_js =
         "export function url_params() {
             let result = [];
-            for (let x of new URLSearchParams(window.location.search)) {
+            for (let x of new URLSearchParams(window.location.search).entries()) {
                 result.push(x);
             }
             return result;
