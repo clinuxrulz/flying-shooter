@@ -55,12 +55,52 @@ impl Default for RoundEndTimer {
     }
 }
 
+#[derive(Resource, Debug, Clone)]
+pub struct GameConfig {
+    pub room_url: String,
+}
+
+#[cfg(target = "wasm32_unknown_unknown")]
+extern "C" {
+    #[wasm_bindgen(inline_js =
+        "export function url_params() {
+            let result = [];
+            for (let x of new URLSearchParams(window.location.search)) {
+                result.push(x);
+            }
+            return result;
+        }"
+    )]
+    fn url_params() -> Vec<Vec<String>>;
+}
+
 fn main() {
     let args = Args::parse();
     info!("Args: {args:?}");
 
+    let default_room_url = "ws://127.0.0.1:3536/extreme_bevy?next=2";
+
+    #[allow(unused_mut)]
+    let mut game_config = GameConfig {
+        room_url: default_room_url.into(),
+    };
+
+    #[cfg(target = "wasm32_unknown_unknown")]
+    {
+        let url_params2 = url_params();
+        for x in url_params2 {
+            if x.len() != 2 {
+                continue;
+            }
+            if x[0] == "room_url" {
+                game_config.room_url = x[1].clone();
+            }
+        }
+    }
+
     App::new()
         .insert_resource(args)
+        .insert_resource(game_config)
         .add_state::<GameState>()
         .add_loading_state(
             LoadingState::new(GameState::AssetLoading).continue_to_state(GameState::Matchmaking),
@@ -275,7 +315,6 @@ fn spawn_players(
             },
             Stroke::new(Color::BLACK, 0.05),
             Fill::color(Color::BLUE),
-
         ))
         .add_rollback();
 
@@ -302,8 +341,10 @@ fn spawn_players(
         .add_rollback();
 }
 
-fn start_matchbox_socket(mut commands: Commands) {
-    let room_url = "ws://127.0.0.1:3536/extreme_bevy?next=2";
+fn start_matchbox_socket(mut commands: Commands, game_config: Res<GameConfig>) {
+    //let room_url = "ws://127.0.0.1:3536/extreme_bevy?next=2";
+    info!("config {:?}", game_config);
+    let room_url = game_config.room_url.clone();
     info!("connecting to matchbox server: {room_url}");
     commands.insert_resource(MatchboxSocket::new_ggrs(room_url));
 }
