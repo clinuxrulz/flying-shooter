@@ -57,7 +57,7 @@ impl Default for RoundEndTimer {
 
 fn main() {
     let args = Args::parse();
-    eprintln!("{args:?}");
+    info!("Args: {args:?}");
 
     App::new()
         .insert_resource(args)
