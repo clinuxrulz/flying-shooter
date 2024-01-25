@@ -5391,8 +5391,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "virtual_joystick"
 version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7de739667555d470998855c0acdb8532b442e003363426e64c231ad0e180c6de"
+source = "git+https://github.com/clinuxrulz/virtual_joystick.git?branch=wasm-touch#cc4054cf425220273d4da5a00fb11305f1db0edd"
 dependencies = [
  "bevy",
  "serde",
