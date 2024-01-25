@@ -14,14 +14,6 @@ use input::*;
 use bevy_prototype_lyon::prelude::*;
 use virtual_joystick::*;
 
-// ID for joysticks
-#[derive(Default, Reflect, Hash, Clone, PartialEq, Eq)]
-pub enum JoystickControllerID {
-    #[default]
-    Joystick1,
-    Joystick2,
-}
-
 const THRUST_ACCELERATION: f32 = 0.2;
 
 mod args;
@@ -86,7 +78,7 @@ fn main() {
             GgrsPlugin::<Config>::default(),
             EguiPlugin,
             ShapePlugin,
-            VirtualJoystickPlugin::<JoystickControllerID>::default(),
+            VirtualJoystickPlugin::<String>::default(),
         ))
         .add_ggrs_state::<RollbackState>()
         .rollback_resource_with_clone::<RoundEndTimer>()

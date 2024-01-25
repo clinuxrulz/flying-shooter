@@ -13,7 +13,7 @@ pub fn read_local_inputs(
     mut commands: Commands,
     keys: Res<Input<KeyCode>>,
     local_players: Res<LocalPlayers>,
-    mut joystick: EventReader<VirtualJoystickEvent<crate::JoystickControllerID>>,
+    mut joystick: EventReader<VirtualJoystickEvent<String>>,
 ) {
     let mut local_inputs = HashMap::new();
 
