@@ -60,18 +60,22 @@ pub struct GameConfig {
     pub room_url: String,
 }
 
-#[cfg(target = "wasm32_unknown_unknown")]
-extern "C" {
-    #[wasm_bindgen(inline_js =
-        "export function url_params() {
-            let result = [];
-            for (let x of new URLSearchParams(window.location.search).entries()) {
-                result.push(x);
+use wasm_bindgen::prelude::wasm_bindgen;
+
+#[wasm_bindgen(inline_js =
+    "export function url_params() {
+        let result = [];
+        for (let x of new URLSearchParams(window.location.search).entries()) {
+            if (x.length < 2) {
+                continue;
             }
-            return result;
-        }"
-    )]
-    fn url_params() -> Vec<Vec<String>>;
+            result.push(x[0] + \"=\" + x[1]);
+        }
+        return result;
+    }"
+)]
+extern "C" {
+    fn url_params() -> Vec<String>;
 }
 
 fn main() {
@@ -85,15 +89,15 @@ fn main() {
         room_url: default_room_url.into(),
     };
 
-    #[cfg(target = "wasm32_unknown_unknown")]
     {
         let url_params2 = url_params();
         for x in url_params2 {
-            if x.len() != 2 {
+            let y: Vec<&str> = x.split("=").collect();
+            if y.len() != 2 {
                 continue;
             }
-            if x[0] == "room_url" {
-                game_config.room_url = x[1].clone();
+            if y[0] == "room_url" {
+                game_config.room_url = y[1].into();
             }
         }
     }
