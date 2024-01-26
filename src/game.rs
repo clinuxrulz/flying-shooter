@@ -380,6 +380,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, button_style: R
                     ..default()
                 },
                 ButtonAction::Fire,
+                Interaction::default(),
             ));
             p.spawn((
                 MaterialNodeBundle {
@@ -393,6 +394,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, button_style: R
                     ..default()
                 },
                 ButtonAction::Thrust,
+                Interaction::default(),
             ));
         });
 }
