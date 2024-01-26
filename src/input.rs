@@ -1,4 +1,4 @@
-use crate::{components::{FaceDir, Player}, game::Config};
+use crate::{components::{FaceDir, Player}, game::{ButtonAction, Config}};
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{LocalInputs, LocalPlayers};
 use virtual_joystick::*;
@@ -17,6 +17,7 @@ pub fn read_local_inputs(
     local_players: Res<LocalPlayers>,
     players: Query<(&Player, &FaceDir)>,
     mut joystick: EventReader<VirtualJoystickEvent<String>>,
+    interaction_query: Query<(&Interaction, &ButtonAction)>,//, Changed<Interaction>>,
     time: Res<Time>
 ) {
     let mut local_inputs = HashMap::new();
@@ -72,6 +73,14 @@ pub fn read_local_inputs(
         }
         if keys.any_pressed([KeyCode::Space, KeyCode::Return]) {
             input |= INPUT_FIRE;
+        }
+        for (interaction, action) in &interaction_query {
+            if *interaction == Interaction::Pressed {
+                match action {
+                    ButtonAction::Fire => input |= INPUT_FIRE,
+                    ButtonAction::Thrust => input |= INPUT_UP,
+                }
+            }
         }
         local_inputs.insert(*handle, input);
     }

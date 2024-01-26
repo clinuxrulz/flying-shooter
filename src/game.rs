@@ -263,7 +263,7 @@ impl FromWorld for ButtonStyle {
 
 /// Button actions for handling click events
 #[derive(Component, Debug, PartialEq, Eq)]
-enum ButtonAction {
+pub enum ButtonAction {
     Fire,
     Thrust,
 }
