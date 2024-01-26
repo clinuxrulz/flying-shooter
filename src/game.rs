@@ -65,7 +65,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
             if (x.length < 2) {
                 continue;
             }
-            result.push(x[0] + \"=\" + x[1]);
+            result.push(x[0] + \",\" + x[1]);
         }
         return result;
     }"
@@ -88,7 +88,7 @@ pub fn run_game() {
     {
         let url_params2 = url_params();
         for x in url_params2 {
-            let y: Vec<&str> = x.split("=").collect();
+            let y: Vec<&str> = x.split(",").collect();
             if y.len() != 2 {
                 continue;
             }
