@@ -453,7 +453,7 @@ fn spawn_players(
             Player { handle: 0 },
             BulletReady(true),
             MoveDir(Vec2::X),
-            FaceDir(0.0),
+            FaceDir(std::f32::consts::PI),
             Velocity(Vec2::ZERO),
             Acceleration(Vec2::ZERO),
             ShapeBundle {
@@ -475,7 +475,7 @@ fn spawn_players(
             Player { handle: 1 },
             BulletReady(true),
             MoveDir(-Vec2::X),
-            FaceDir(std::f32::consts::PI),
+            FaceDir(0.0),
             Velocity(Vec2::ZERO),
             Acceleration(Vec2::ZERO),
             ShapeBundle {
