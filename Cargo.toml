@@ -24,3 +24,4 @@ bevy_egui = "0.23"
 bevy_prototype_lyon = "0.10.0"
 virtual_joystick = { git = "https://github.com/clinuxrulz/virtual_joystick.git", branch = "wasm-touch" }
 wasm-bindgen = "0.2.90"
+bevy_round_ui = "0.1.1"

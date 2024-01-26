@@ -13,6 +13,7 @@ use crate::components::*;
 use crate::input::*;
 use bevy_prototype_lyon::prelude::*;
 use virtual_joystick::*;
+use bevy_round_ui::prelude::*;
 
 const THRUST_ACCELERATION: f32 = 0.2;
 
@@ -119,6 +120,7 @@ pub fn run_game() {
             EguiPlugin,
             ShapePlugin,
             VirtualJoystickPlugin::<String>::default(),
+            RoundUiPlugin,
         ))
         .add_ggrs_state::<RollbackState>()
         .rollback_resource_with_clone::<RoundEndTimer>()
@@ -200,7 +202,7 @@ fn p2p_mode(args: Res<Args>) -> bool {
     !args.synctest
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut materials: ResMut<Assets<RoundUiMaterial>>) {
     // Horizontal lines
     for i in 0..=MAP_SIZE {
         commands.spawn(SpriteBundle {
@@ -264,6 +266,59 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
     );
+
+    let circle_button_material = materials.add(RoundUiMaterial {
+        background_color: Color::hex("#F76161").unwrap(),
+        border_color: Color::hex("#A53A3D").unwrap(),
+        border_radius: RoundUiBorder::all(100.0).into(),
+        size: Vec2::new(100.0, 100.0),
+        offset: RoundUiOffset::bottom(10.0).into(),
+    });
+
+    let circle_button_material_2 = materials.add(RoundUiMaterial {
+        background_color: Color::hex("#6161F7").unwrap(),
+        border_color: Color::hex("#3A3DA5").unwrap(),
+        border_radius: RoundUiBorder::all(100.0).into(),
+        size: Vec2::new(100.0, 100.0),
+        offset: RoundUiOffset::bottom(10.0).into(),
+    });
+
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Px(250.0),
+                height: Val::Px(100.0),
+                position_type: PositionType::Absolute,
+                right: Val::Percent(10.),
+                bottom: Val::Percent(10.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|p| {
+            p.spawn(MaterialNodeBundle {
+                material: circle_button_material.clone(),
+                style: Style {
+                    width: Val::Px(100.),
+                    height: Val::Px(100.),
+                    ..default()
+                },
+                ..default()
+            });
+            p.spawn(MaterialNodeBundle {
+                material: circle_button_material_2,
+                style: Style {
+                    width: Val::Px(100.),
+                    height: Val::Px(100.),
+                    margin: UiRect::left(Val::Px(50.0)),
+                    ..default()
+                },
+                ..default()
+            });
+        });
+
 }
 
 fn spawn_players(
