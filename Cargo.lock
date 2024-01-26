@@ -5431,7 +5431,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "virtual_joystick"
 version = "2.1.0"
-source = "git+https://github.com/clinuxrulz/virtual_joystick.git?branch=wasm-touch#23bdccc7c38aba86fdb40176fa0f6107c6c0c272"
+source = "git+https://github.com/clinuxrulz/virtual_joystick.git?branch=wasm-touch#8eebebec57b960998398bbc64fe3746e4eaa2bfb"
 dependencies = [
  "bevy",
  "serde",
@@ -5814,7 +5814,7 @@ dependencies = [
  "js-sys",
  "log",
  "naga",
- "parking_lot 0.12.1",
+ "parking_lot 0.11.2",
  "profiling",
  "raw-window-handle",
  "smallvec",
@@ -5839,7 +5839,7 @@ dependencies = [
  "codespan-reporting",
  "log",
  "naga",
- "parking_lot 0.12.1",
+ "parking_lot 0.11.2",
  "profiling",
  "raw-window-handle",
  "rustc-hash",
@@ -5877,7 +5877,7 @@ dependencies = [
  "metal",
  "naga",
  "objc",
- "parking_lot 0.12.1",
+ "parking_lot 0.11.2",
  "profiling",
  "range-alloc",
  "raw-window-handle",
