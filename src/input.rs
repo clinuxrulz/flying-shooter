@@ -31,7 +31,7 @@ pub fn read_local_inputs(
             diff
         }
     };
-    let min_diff = ROTATE_SPEED * time.delta_seconds() * 2.0;
+    let min_diff = ROTATE_SPEED * time.delta_seconds() * 10.0;
     for handle in &local_players.0 {
         let mut input = 0u8;
         for j in joystick.read() {
