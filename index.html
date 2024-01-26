@@ -11,5 +11,11 @@
 
             start();
         </script>
+        <script>
+            function fullscreen() {
+                document.body.querySelector("canvas").requestFullscreen();
+            }
+        </script>
+        <input type="button" value="Fullscreen" onclick="fullscreen()"/>
     </body>
 </html>
