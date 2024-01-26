@@ -122,6 +122,7 @@ pub fn run_game() {
             VirtualJoystickPlugin::<String>::default(),
             RoundUiPlugin,
         ))
+        .init_resource::<ButtonStyle>()
         .add_ggrs_state::<RollbackState>()
         .rollback_resource_with_clone::<RoundEndTimer>()
         .rollback_resource_with_copy::<Scores>()
@@ -162,6 +163,7 @@ pub fn run_game() {
             ),
         )
         .add_systems(ReadInputs, read_local_inputs)
+        .add_systems(Update, handle_button_interactions)
         .add_systems(OnEnter(RollbackState::InRound), spawn_players)
         .add_systems(
             GgrsSchedule,
@@ -185,6 +187,91 @@ pub fn run_game() {
         .run();
 }
 
+/// Resource containing material handles for the different button states
+#[derive(Resource)]
+pub struct ButtonStyle {
+    pub width: f32,
+    pub height: f32,
+    pub default: Handle<RoundUiMaterial>,
+    pub hover: Handle<RoundUiMaterial>,
+    pub press: Handle<RoundUiMaterial>,
+    pub default_2: Handle<RoundUiMaterial>,
+    pub hover_2: Handle<RoundUiMaterial>,
+    pub press_2: Handle<RoundUiMaterial>,
+}
+
+impl FromWorld for ButtonStyle {
+    fn from_world(world: &mut World) -> Self {
+        let cell = world.cell();
+        let mut materials = cell
+            .get_resource_mut::<Assets<RoundUiMaterial>>()
+            .expect("Failed to get Assets<RoundRectMaterial>");
+
+        let width = 100.;
+        let height = 100.;
+        let offset = 5.;
+        let border_radius = RoundUiBorder::all(100.);
+
+        Self {
+            width,
+            height,
+            default: materials.add(RoundUiMaterial {
+                background_color: Color::hex("#F76161").unwrap(),
+                border_color: Color::hex("#A53A3D").unwrap(),
+                border_radius: border_radius.into(),
+                size: Vec2::new(width, height),
+                offset: RoundUiOffset::bottom(offset).into(),
+            }),
+            hover: materials.add(RoundUiMaterial {
+                background_color: Color::hex("#F61A39").unwrap(),
+                border_color: Color::hex("#A0102A").unwrap(),
+                border_radius: border_radius.into(),
+                size: Vec2::new(width, height),
+                offset: RoundUiOffset::bottom(offset).into(),
+            }),
+            press: materials.add(RoundUiMaterial {
+                background_color: Color::hex("#A0102A").unwrap(),
+                border_color: Color::NONE,
+                border_radius: border_radius.into(),
+                size: Vec2::new(width, height),
+                offset: RoundUiOffset::top(offset).into(),
+            }),
+            default_2: materials.add(RoundUiMaterial {
+                background_color: Color::hex("#6161F7").unwrap(),
+                border_color: Color::hex("#3A3DA5").unwrap(),
+                border_radius: border_radius.into(),
+                size: Vec2::new(width, height),
+                offset: RoundUiOffset::bottom(offset).into(),
+            }),
+            hover_2: materials.add(RoundUiMaterial {
+                background_color: Color::hex("#1A39F6").unwrap(),
+                border_color: Color::hex("#102AA0").unwrap(),
+                border_radius: border_radius.into(),
+                size: Vec2::new(width, height),
+                offset: RoundUiOffset::bottom(offset).into(),
+            }),
+            press_2: materials.add(RoundUiMaterial {
+                background_color: Color::hex("#102AA0").unwrap(),
+                border_color: Color::NONE,
+                border_radius: border_radius.into(),
+                size: Vec2::new(width, height),
+                offset: RoundUiOffset::top(offset).into(),
+            }),
+        }
+    }
+}
+
+/// Button actions for handling click events
+#[derive(Component, Debug, PartialEq, Eq)]
+enum ButtonAction {
+    Fire,
+    Thrust,
+}
+
+/// Marker component to identify round buttons
+#[derive(Component)]
+pub struct RoundButton;
+
 const MAP_SIZE: i32 = 41;
 const GRID_WIDTH: f32 = 0.05;
 
@@ -202,7 +289,7 @@ fn p2p_mode(args: Res<Args>) -> bool {
     !args.synctest
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut materials: ResMut<Assets<RoundUiMaterial>>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, button_style: Res<ButtonStyle>,) {
     // Horizontal lines
     for i in 0..=MAP_SIZE {
         commands.spawn(SpriteBundle {
@@ -267,22 +354,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut materials: 
         },
     );
 
-    let circle_button_material = materials.add(RoundUiMaterial {
-        background_color: Color::hex("#F76161").unwrap(),
-        border_color: Color::hex("#A53A3D").unwrap(),
-        border_radius: RoundUiBorder::all(100.0).into(),
-        size: Vec2::new(100.0, 100.0),
-        offset: RoundUiOffset::bottom(10.0).into(),
-    });
-
-    let circle_button_material_2 = materials.add(RoundUiMaterial {
-        background_color: Color::hex("#6161F7").unwrap(),
-        border_color: Color::hex("#3A3DA5").unwrap(),
-        border_radius: RoundUiBorder::all(100.0).into(),
-        size: Vec2::new(100.0, 100.0),
-        offset: RoundUiOffset::bottom(10.0).into(),
-    });
-
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -298,27 +369,50 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut materials: 
             ..default()
         })
         .with_children(|p| {
-            p.spawn(MaterialNodeBundle {
-                material: circle_button_material.clone(),
-                style: Style {
-                    width: Val::Px(100.),
-                    height: Val::Px(100.),
+            p.spawn((
+                MaterialNodeBundle {
+                    material: button_style.default.clone(),
+                    style: Style {
+                        width: Val::Px(100.),
+                        height: Val::Px(100.),
+                        ..default()
+                    },
                     ..default()
                 },
-                ..default()
-            });
-            p.spawn(MaterialNodeBundle {
-                material: circle_button_material_2,
-                style: Style {
-                    width: Val::Px(100.),
-                    height: Val::Px(100.),
-                    margin: UiRect::left(Val::Px(50.0)),
+                ButtonAction::Fire,
+            ));
+            p.spawn((
+                MaterialNodeBundle {
+                    material: button_style.default_2.clone(),
+                    style: Style {
+                        width: Val::Px(100.),
+                        height: Val::Px(100.),
+                        margin: UiRect::left(Val::Px(50.0)),
+                        ..default()
+                    },
                     ..default()
                 },
-                ..default()
-            });
+                ButtonAction::Thrust,
+            ));
         });
+}
 
+/// Updates button materials when their interaction changes
+#[allow(clippy::type_complexity)]
+fn handle_button_interactions(
+    mut interaction_query: Query<
+        (&Interaction, &mut Handle<RoundUiMaterial>, &ButtonAction),
+        (Changed<Interaction>),
+    >,
+    button_style: Res<ButtonStyle>,
+) {
+    for (interaction, mut material, button_action) in &mut interaction_query {
+        *material = match *interaction {
+            Interaction::Pressed => if *button_action == ButtonAction::Fire { button_style.press.clone() } else { button_style.press_2.clone() },
+            Interaction::Hovered => if *button_action == ButtonAction::Fire { button_style.hover.clone() } else { button_style.hover_2.clone() },
+            Interaction::None => if *button_action == ButtonAction::Fire { button_style.default.clone() } else { button_style.default_2.clone() },
+        };
+    }
 }
 
 fn spawn_players(
