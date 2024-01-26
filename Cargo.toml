@@ -1,10 +1,11 @@
 [package]
-name = "extreme_bevy"
+name = "flying_shooter"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib"]
+name = "flying_shooter_lib"
 
 # [package.metadata.wasm-pack.profile.release]
 # wasm-opt = false
