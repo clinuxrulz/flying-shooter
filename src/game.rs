@@ -446,7 +446,7 @@ fn move_players(
     for (mut transform, mut velocity , mut acceleration, mut face_dir, player) in &mut players {
         let (input, _) = inputs[player.handle];
         let rotate_by = rotate_by(input);
-        face_dir.0 += rotate_by;
+        face_dir.0 += rotate_by * time.delta_seconds();
         while face_dir.0 < 0.0 {
             face_dir.0 += 2.0 * std::f32::consts::PI;
         }

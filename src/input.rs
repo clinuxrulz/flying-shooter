@@ -9,7 +9,7 @@ const INPUT_LEFT: u8 = 1 << 2;
 const INPUT_RIGHT: u8 = 1 << 3;
 const INPUT_FIRE: u8 = 1 << 4;
 
-const ROTATE_SPEED: f32 = 0.1;
+const ROTATE_SPEED: f32 = 5.0;
 
 pub fn read_local_inputs(
     mut commands: Commands,
@@ -31,25 +31,30 @@ pub fn read_local_inputs(
             diff
         }
     };
-    let min_diff = time.delta_seconds() * ROTATE_SPEED * 10.0;
+    let min_diff = ROTATE_SPEED * time.delta_seconds() * 2.0;
     for handle in &local_players.0 {
         let mut input = 0u8;
-        for j in joystick.read().take(1) {
+        for j in joystick.read() {
+            if j.get_type() != VirtualJoystickEventType::Drag {
+                continue;
+            }
             let axis = j.axis();
             if axis.x == 0.0f32 && axis.y == 0.0f32 {
                 continue;
             }
-            let target_face_dir = (-axis.y).atan2(-axis.x);
+            let target_face_dir = axis.y.atan2(axis.x);
             for (player, face_dir) in &players {
                 if player.handle != *handle {
                     continue;
                 }
                 let face_dir = face_dir.0;
                 let diff = angle_diff(face_dir, target_face_dir);
-                if diff < -min_diff {
-                    input |= INPUT_LEFT;
-                } else if diff > min_diff {
-                    input |= INPUT_RIGHT;
+                if diff.abs() > min_diff {
+                    if diff < 0.0f32 {
+                        input |= INPUT_RIGHT;
+                    } else if diff > 0.0f32 {
+                        input |= INPUT_LEFT;
+                    }
                 }
             }
         }
