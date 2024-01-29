@@ -79,7 +79,7 @@ pub fn run_game() {
     let args = Args::parse();
     info!("Args: {args:?}");
 
-    let default_room_url = "ws://127.0.0.1:3536/extreme_bevy?next=2";
+    let default_room_url = "wss://dune-breezy-honeysuckle.glitch.me/?next=2";
 
     #[allow(unused_mut)]
     let mut game_config = GameConfig {
