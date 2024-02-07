@@ -15,6 +15,8 @@ use bevy_prototype_lyon::prelude::*;
 use virtual_joystick::*;
 use bevy_round_ui::prelude::*;
 
+const SHIP_SPEED: f32 = 50.0;
+
 // The first generic parameter, u8, is the input type: 4-directions + fire fits
 // easily in a single byte
 // The second parameter is the address type of peers: Matchbox' WebRtcSocket
@@ -441,7 +443,7 @@ fn setup(
         .spawn((
             Player { handle: 0 },
             BulletReady(true),
-            Speed(10.0),
+            Speed(SHIP_SPEED),
             Acceleration(Vec3::ZERO),
             SceneBundle {
                 scene: models.xwing.clone(),
@@ -733,7 +735,7 @@ fn spawn_players(
         .spawn((
             Player { handle: 0 },
             BulletReady(true),
-            Speed(10.0),
+            Speed(SHIP_SPEED),
             Acceleration(Vec3::ZERO),
             SceneBundle {
                 scene: models.xwing.clone(),
@@ -748,11 +750,11 @@ fn spawn_players(
         .spawn((
             Player { handle: 1 },
             BulletReady(true),
-            Speed(10.0),
+            Speed(SHIP_SPEED),
             Acceleration(Vec3::ZERO),
             SceneBundle {
                 scene: models.xwing.clone(),
-                transform: Transform::from_translation(Vec3::new(0.0, 2.0, 200.0)).looking_to(Vec3::Z, Vec3::Y),
+                transform: Transform::from_translation(Vec3::new(0.0, 20.0, 1_000.0)).looking_to(Vec3::Z, Vec3::Y),
                 ..default()
             },
             CustomizeMaterial,
