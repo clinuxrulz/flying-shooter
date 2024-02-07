@@ -1,4 +1,4 @@
-use crate::{components::{FaceDir, Player}, game::{ButtonAction, Config}};
+use crate::{components::Player, game::{ButtonAction, Config}};
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{LocalInputs, LocalPlayers};
 use virtual_joystick::*;
@@ -9,7 +9,6 @@ const INPUT_LEFT: u8 = 1 << 2;
 const INPUT_RIGHT: u8 = 1 << 3;
 const INPUT_FIRE: u8 = 1 << 4;
 
-const ROTATE_SPEED: f32 = 100.0;
 const PITCH_SPEED: f32 = 100.0;
 const ROLL_SPEED: f32 = 100.0;
 
@@ -76,82 +75,6 @@ pub fn read_local_inputs(
         }
     
     }
-    commands.insert_resource(LocalInputs::<Config>(local_inputs));
-}
-
-pub fn read_local_inputs_(
-    mut commands: Commands,
-    keys: Res<Input<KeyCode>>,
-    local_players: Res<LocalPlayers>,
-    players: Query<(&Player, &FaceDir)>,
-    mut joystick: EventReader<VirtualJoystickEvent<String>>,
-    interaction_query: Query<(&Interaction, &ButtonAction)>,//, Changed<Interaction>>,
-    time: Res<Time>
-) {
-    let mut local_inputs = HashMap::new();
-
-    let angle_diff = |a: f32, b: f32| -> f32 {
-        //     double diff = ( angle2 - angle1 + 180 ) % 360 - 180;
-        // return diff < -180 ? diff + 360 : diff;
-        let diff = (b - a + std::f32::consts::PI) % (2.0 * std::f32::consts::PI) - std::f32::consts::PI;
-        if diff < -std::f32::consts::PI {
-            diff + 2.0 * std::f32::consts::PI
-        } else {
-            diff
-        }
-    };
-    let min_diff = ROTATE_SPEED * time.delta_seconds() * 10.0;
-    for handle in &local_players.0 {
-        let mut input: [u8; 3] = [0u8; 3];
-        for j in joystick.read() {
-            if j.get_type() != VirtualJoystickEventType::Drag {
-                continue;
-            }
-            let axis = j.axis();
-            if axis.x == 0.0f32 && axis.y == 0.0f32 {
-                continue;
-            }
-            let target_face_dir = axis.y.atan2(axis.x);
-            for (player, face_dir) in &players {
-                if player.handle != *handle {
-                    continue;
-                }
-                let face_dir = face_dir.0;
-                let diff = angle_diff(face_dir, target_face_dir);
-                if diff.abs() > min_diff {
-                    if diff < 0.0f32 {
-                        input[0] |= INPUT_RIGHT;
-                    } else if diff > 0.0f32 {
-                        input[0] |= INPUT_LEFT;
-                    }
-                }
-            }
-        }
-        if keys.any_pressed([KeyCode::Up, KeyCode::W]) {
-            input[0] |= INPUT_UP;
-        }
-        if keys.any_pressed([KeyCode::Down, KeyCode::S]) {
-            input[0] |= INPUT_DOWN;
-        }
-        if keys.any_pressed([KeyCode::Left, KeyCode::A]) {
-            input[0] |= INPUT_LEFT
-        }
-        if keys.any_pressed([KeyCode::Right, KeyCode::D]) {
-            input[0] |= INPUT_RIGHT;
-        }
-        if keys.any_pressed([KeyCode::Space, KeyCode::Return]) {
-            input[0] |= INPUT_FIRE;
-        }
-        for (interaction, action) in &interaction_query {
-            if *interaction == Interaction::Pressed {
-                match action {
-                    ButtonAction::Fire => input[0] |= INPUT_FIRE,
-                }
-            }
-        }
-        local_inputs.insert(*handle, input);
-    }
-
     commands.insert_resource(LocalInputs::<Config>(local_inputs));
 }
 

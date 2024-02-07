@@ -1,5 +1,5 @@
 use crate::{args::Args, fps_plugin::FpsPlugin, pbr_material::CustomStandardMaterial};
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{prelude::*, scene::SceneInstance, utils::HashMap};
 use bevy_asset_loader::prelude::*;
 use bevy_egui::{
     egui::{self, Align2, Color32, FontId, RichText},
@@ -171,6 +171,7 @@ pub fn run_game() {
             Update,
             (
                 swap_standard_material,
+                customize_scene_materials,
                 button_system,
             ),
         )
@@ -451,6 +452,7 @@ fn setup(
                 scene: models.xwing.clone(),
                 ..default()
             },
+            CustomizeMaterial,
         ));
     
     
@@ -637,6 +639,61 @@ fn swap_standard_material(
     }
 }
 
+#[derive(Component)]
+struct CustomizeMaterial;
+
+fn customize_scene_materials(
+    unloaded_instances: Query<(Entity, &SceneInstance), With<CustomizeMaterial>>,
+    handles: Query<(Entity, &Handle<StandardMaterial>)>,
+    pbr_materials: Res<Assets<StandardMaterial>>,
+    scene_manager: Res<SceneSpawner>,
+    mut custom_materials: ResMut<Assets<CustomStandardMaterial>>,
+    mut cmds: Commands,
+) {
+    for (entity, instance) in unloaded_instances.iter() {
+        if scene_manager.instance_is_ready(**instance) {
+            cmds.entity(entity).remove::<CustomizeMaterial>();
+        }
+        // Iterate over all entities in scene (once it's loaded)
+        let handles = handles.iter_many(scene_manager.iter_instance_entities(**instance));
+        for (entity, material_handle) in handles {
+            let Some(material) = pbr_materials.get(material_handle) else { continue; };
+            let custom = custom_materials.add(CustomStandardMaterial {
+                base_color: material.base_color,
+                base_color_texture: material.base_color_texture.clone(),
+                emissive: material.emissive,
+                emissive_texture: material.emissive_texture.clone(),
+                perceptual_roughness: material.perceptual_roughness,
+                metallic: material.metallic,
+                metallic_roughness_texture: material.metallic_roughness_texture.clone(),
+                reflectance: material.reflectance,
+                normal_map_texture: material.normal_map_texture.clone(),
+                flip_normal_map_y: material.flip_normal_map_y,
+                occlusion_texture: material.occlusion_texture.clone(),
+                double_sided: material.double_sided,
+                cull_mode: material.cull_mode,
+                unlit: material.unlit,
+                fog_enabled: material.fog_enabled,
+                alpha_mode: material.alpha_mode,
+                depth_bias: material.depth_bias,
+                depth_map: material.depth_map.clone(),
+                parallax_depth_scale: material.parallax_depth_scale,
+                parallax_mapping_method: material.parallax_mapping_method,
+                max_parallax_layer_count: material.max_parallax_layer_count,
+                diffuse_transmission: material.diffuse_transmission,
+                specular_transmission: material.specular_transmission,
+                thickness: material.thickness,
+                ior: material.ior,
+                attenuation_distance: material.attenuation_distance,
+                attenuation_color: material.attenuation_color,
+                opaque_render_method: material.opaque_render_method,
+                deferred_lighting_pass_id: material.deferred_lighting_pass_id,
+            });
+            cmds.entity(entity).insert(custom).remove::<Handle<StandardMaterial>>();
+        }
+    }
+}
+
 /// Updates button materials when their interaction changes
 #[allow(clippy::type_complexity)]
 fn handle_button_interactions(
@@ -688,6 +745,7 @@ fn spawn_players(
                 scene: models.xwing.clone(),
                 ..default()
             },
+            CustomizeMaterial,
         ))
         .add_rollback();
     
@@ -704,6 +762,7 @@ fn spawn_players(
                 transform: Transform::from_translation(Vec3::new(0.0, 2.0, 200.0)).looking_to(Vec3::Z, Vec3::Y),
                 ..default()
             },
+            CustomizeMaterial,
         ))
         .add_rollback();
 
