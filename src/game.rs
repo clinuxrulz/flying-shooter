@@ -370,7 +370,7 @@ fn setup(
         ..default()
     });
     let sphere_mesh: Handle<Mesh> = meshes.add(shape::UVSphere {
-        radius: -100.0,
+        radius: -90_000.0,
         ..default()
     }.into());
     commands.spawn((
