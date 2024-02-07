@@ -10,7 +10,7 @@ const INPUT_RIGHT: u8 = 1 << 3;
 const INPUT_FIRE: u8 = 1 << 4;
 
 const PITCH_SPEED: f32 = 100.0;
-const ROLL_SPEED: f32 = 100.0;
+const ROLL_SPEED: f32 = 200.0;
 
 pub fn read_local_inputs(
     mut commands: Commands,

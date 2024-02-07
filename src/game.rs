@@ -1000,10 +1000,10 @@ fn camera_follow(
         }
         for mut transform in &mut cameras {
             let target = player_transform.transform_point(Vec3::new(0.0, 1.5, -10.0));
-            let delta = (target - transform.translation) * (2.5f32 * time.delta_seconds()).min(1.0);
+            let delta = (target - transform.translation) * (10.0f32 * time.delta_seconds()).min(1.0);
             transform.translation += delta;
             let target_rotation = player_transform.rotation * Quat::from_rotation_y(std::f32::consts::PI);
-            transform.rotation = transform.rotation.lerp(target_rotation, (2.5f32 * time.delta_seconds()).min(1.0));
+            transform.rotation = transform.rotation.lerp(target_rotation, (6.0f32 * time.delta_seconds()).min(1.0));
         }
     }
 }
