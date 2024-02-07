@@ -9,7 +9,64 @@ const INPUT_LEFT: u8 = 1 << 2;
 const INPUT_RIGHT: u8 = 1 << 3;
 const INPUT_FIRE: u8 = 1 << 4;
 
-const ROTATE_SPEED: f32 = 5.0;
+const ROTATE_SPEED: f32 = 100.0;
+const PITCH_SPEED: f32 = 100.0;
+const ROLL_SPEED: f32 = 100.0;
+
+pub fn read_local_inputs_prematch(
+    mut commands: Commands,
+    keys: Res<Input<KeyCode>>,
+    players: Query<&Player>,
+    mut joystick: EventReader<VirtualJoystickEvent<String>>,
+    interaction_query: Query<(&Interaction, &ButtonAction)>,//, Changed<Interaction>>,
+) {
+    {
+        let mut local_inputs = HashMap::new();
+        let handle: usize = 0;
+        let handle = &handle;
+        {
+            let mut input: [u8; 3] = [0u8; 3];
+            for j in joystick.read() {
+                if j.get_type() != VirtualJoystickEventType::Drag {
+                    continue;
+                }
+                for player in &players {
+                    if player.handle != *handle {
+                        continue;
+                    }
+                    let axis = j.axis();
+                    input[1] = ((axis.x * 100.0).round() as i8) as u8;
+                    input[2] = ((axis.y * 100.0).round() as i8) as u8;
+                }
+            }
+            if keys.any_pressed([KeyCode::Up, KeyCode::W]) {
+                input[0] |= INPUT_UP;
+            }
+            if keys.any_pressed([KeyCode::Down, KeyCode::S]) {
+                input[0] |= INPUT_DOWN;
+            }
+            if keys.any_pressed([KeyCode::Left, KeyCode::A]) {
+                input[0] |= INPUT_LEFT
+            }
+            if keys.any_pressed([KeyCode::Right, KeyCode::D]) {
+                input[0] |= INPUT_RIGHT;
+            }
+            if keys.any_pressed([KeyCode::Space, KeyCode::Return]) {
+                input[0] |= INPUT_FIRE;
+            }
+            for (interaction, action) in &interaction_query {
+                if *interaction == Interaction::Pressed {
+                    match action {
+                        ButtonAction::Fire => input[0] |= INPUT_FIRE,
+                    }
+                }
+            }
+            local_inputs.insert(*handle, input);
+        }
+    
+        commands.insert_resource(LocalInputs::<Config>(local_inputs));
+    }
+}
 
 pub fn read_local_inputs(
     mut commands: Commands,
@@ -34,7 +91,7 @@ pub fn read_local_inputs(
     };
     let min_diff = ROTATE_SPEED * time.delta_seconds() * 10.0;
     for handle in &local_players.0 {
-        let mut input = 0u8;
+        let mut input: [u8; 3] = [0u8; 3];
         for j in joystick.read() {
             if j.get_type() != VirtualJoystickEventType::Drag {
                 continue;
@@ -52,33 +109,32 @@ pub fn read_local_inputs(
                 let diff = angle_diff(face_dir, target_face_dir);
                 if diff.abs() > min_diff {
                     if diff < 0.0f32 {
-                        input |= INPUT_RIGHT;
+                        input[0] |= INPUT_RIGHT;
                     } else if diff > 0.0f32 {
-                        input |= INPUT_LEFT;
+                        input[0] |= INPUT_LEFT;
                     }
                 }
             }
         }
         if keys.any_pressed([KeyCode::Up, KeyCode::W]) {
-            input |= INPUT_UP;
+            input[0] |= INPUT_UP;
         }
         if keys.any_pressed([KeyCode::Down, KeyCode::S]) {
-            input |= INPUT_DOWN;
+            input[0] |= INPUT_DOWN;
         }
         if keys.any_pressed([KeyCode::Left, KeyCode::A]) {
-            input |= INPUT_LEFT
+            input[0] |= INPUT_LEFT
         }
         if keys.any_pressed([KeyCode::Right, KeyCode::D]) {
-            input |= INPUT_RIGHT;
+            input[0] |= INPUT_RIGHT;
         }
         if keys.any_pressed([KeyCode::Space, KeyCode::Return]) {
-            input |= INPUT_FIRE;
+            input[0] |= INPUT_FIRE;
         }
         for (interaction, action) in &interaction_query {
             if *interaction == Interaction::Pressed {
                 match action {
-                    ButtonAction::Fire => input |= INPUT_FIRE,
-                    ButtonAction::Thrust => input |= INPUT_UP,
+                    ButtonAction::Fire => input[0] |= INPUT_FIRE,
                 }
             }
         }
@@ -88,37 +144,26 @@ pub fn read_local_inputs(
     commands.insert_resource(LocalInputs::<Config>(local_inputs));
 }
 
-pub fn rotate_by(input: u8) -> f32 {
-    if (input & INPUT_LEFT) != 0 {
-        return ROTATE_SPEED;
-    }
-    if (input & INPUT_RIGHT) != 0 {
-        return -ROTATE_SPEED;
-    }
-    return 0.0;
+pub fn fire(input: [u8; 3]) -> bool {
+    input[0] & INPUT_FIRE != 0
 }
 
-pub fn thrust(input: u8) -> bool {
-    input & INPUT_UP != 0
+pub fn angular_thrust_pitch(input: [u8; 3]) -> f32 {
+    if input[0] & INPUT_DOWN != 0 {
+        return -PITCH_SPEED;
+    } else if input[0] & INPUT_UP != 0 {
+        return PITCH_SPEED;
+    }
+    let joystick_y = ((input[2] as i8) as f32) / 100.0;
+    return joystick_y * PITCH_SPEED;
 }
 
-pub fn direction(input: u8) -> Vec2 {
-    let mut direction = Vec2::ZERO;
-    if input & INPUT_UP != 0 {
-        direction.y += 1.;
+pub fn angular_thrust_roll(input: [u8; 3]) -> f32 {
+    if input[0] & INPUT_LEFT != 0 {
+        return -ROLL_SPEED;
+    } else if input[0] & INPUT_RIGHT != 0 {
+        return ROLL_SPEED;
     }
-    if input & INPUT_DOWN != 0 {
-        direction.y -= 1.;
-    }
-    if input & INPUT_RIGHT != 0 {
-        direction.x += 1.;
-    }
-    if input & INPUT_LEFT != 0 {
-        direction.x -= 1.;
-    }
-    direction.normalize_or_zero()
-}
-
-pub fn fire(input: u8) -> bool {
-    input & INPUT_FIRE != 0
+    let joystick_x = ((input[1] as i8) as f32) / 100.0;
+    return joystick_x * ROLL_SPEED;
 }

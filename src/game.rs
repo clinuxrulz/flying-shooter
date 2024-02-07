@@ -1,5 +1,5 @@
-use crate::args::Args;
-use bevy::{prelude::*, render::camera::ScalingMode};
+use crate::{args::Args, fps_plugin::FpsPlugin, pbr_material::CustomStandardMaterial};
+use bevy::{prelude::*, utils::HashMap};
 use bevy_asset_loader::prelude::*;
 use bevy_egui::{
     egui::{self, Align2, Color32, FontId, RichText},
@@ -15,13 +15,11 @@ use bevy_prototype_lyon::prelude::*;
 use virtual_joystick::*;
 use bevy_round_ui::prelude::*;
 
-const THRUST_ACCELERATION: f32 = 0.2;
-
 // The first generic parameter, u8, is the input type: 4-directions + fire fits
 // easily in a single byte
 // The second parameter is the address type of peers: Matchbox' WebRtcSocket
 // addresses are called `PeerId`s
-pub type Config = bevy_ggrs::GgrsConfig<u8, PeerId>;
+pub type Config = bevy_ggrs::GgrsConfig<[u8; 3], PeerId>;
 
 #[derive(States, Clone, Eq, PartialEq, Debug, Hash, Default)]
 enum GameState {
@@ -69,10 +67,16 @@ use wasm_bindgen::prelude::wasm_bindgen;
             result.push(x[0] + \",\" + x[1]);
         }
         return result;
-    }"
+    }
+
+    export function go_fullscreen() {
+        document.body.querySelector(\"canvas\").requestFullscreen();
+    }
+    "
 )]
 extern "C" {
     fn url_params() -> Vec<String>;
+    fn go_fullscreen();
 }
 
 pub fn run_game() {
@@ -86,6 +90,7 @@ pub fn run_game() {
         room_url: default_room_url.into(),
     };
 
+    /*
     {
         let url_params2 = url_params();
         for x in url_params2 {
@@ -97,7 +102,7 @@ pub fn run_game() {
                 game_config.room_url = y[1].into();
             }
         }
-    }
+    }*/
 
     App::new()
         .insert_resource(args)
@@ -107,6 +112,7 @@ pub fn run_game() {
             LoadingState::new(GameState::AssetLoading).continue_to_state(GameState::Matchmaking),
         )
         .add_collection_to_loading_state::<_, ImageAssets>(GameState::AssetLoading)
+        .add_collection_to_loading_state::<_, ModelAssets>(GameState::AssetLoading)
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
@@ -121,6 +127,8 @@ pub fn run_game() {
             ShapePlugin,
             VirtualJoystickPlugin::<String>::default(),
             RoundUiPlugin,
+            FpsPlugin,
+            MaterialPlugin::<CustomStandardMaterial>::default(),
         ))
         .init_resource::<ButtonStyle>()
         .add_ggrs_state::<RollbackState>()
@@ -143,9 +151,51 @@ pub fn run_game() {
         .checksum_component::<FaceDir>(checksum_face_dir)
         .checksum_component::<Velocity>(checksum_velocity)
         .checksum_component::<Acceleration>(checksum_acceleration)
-        .insert_resource(ClearColor(Color::rgb(0.53, 0.53, 0.53)))
+        .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .init_resource::<RoundEndTimer>()
         .init_resource::<Scores>()
+        //
+        .add_systems(
+            OnEnter(GameState::Matchmaking),
+            (
+                setup,
+                start_matchbox_socket,
+            ),
+        )
+        .insert_resource(LocalInputs::<Config>(HashMap::from_iter(vec![(0, [0, 0, 0])].drain(0..))))
+        .add_systems(
+            PreUpdate,
+            read_local_inputs_prematch.run_if(in_state(GameState::Matchmaking)),
+        )
+        .add_systems(
+            Update,
+            (
+                swap_standard_material,
+                button_system,
+            ),
+        )
+        .add_systems(
+            Update,
+            (
+                (
+                    camera_follow,
+                    move_skybox_with_camera.after(camera_follow),
+                ),
+                (
+                    move_players,
+                    reload_bullet,
+                    fire_bullets.after(move_players).after(reload_bullet),
+                    move_bullet.after(fire_bullets),
+                    wait_for_players,
+                ).run_if(in_state(GameState::Matchmaking)),
+                (
+                    handle_ggrs_events,
+                    update_score_ui,
+                ).run_if(in_state(GameState::InGame)),
+            ),
+        )
+        //
+        /*
         .add_systems(
             OnEnter(GameState::Matchmaking),
             (setup, start_matchbox_socket.run_if(p2p_mode)),
@@ -162,6 +212,7 @@ pub fn run_game() {
                     .run_if(in_state(GameState::InGame)),
             ),
         )
+        */
         .add_systems(ReadInputs, read_local_inputs)
         .add_systems(Update, handle_button_interactions)
         .add_systems(OnEnter(RollbackState::InRound), spawn_players)
@@ -265,68 +316,72 @@ impl FromWorld for ButtonStyle {
 #[derive(Component, Debug, PartialEq, Eq)]
 pub enum ButtonAction {
     Fire,
-    Thrust,
+    //Thrust,
 }
 
 /// Marker component to identify round buttons
 #[derive(Component)]
 pub struct RoundButton;
 
-const MAP_SIZE: i32 = 41;
-const GRID_WIDTH: f32 = 0.05;
-
 #[derive(AssetCollection, Resource)]
 struct ImageAssets {
-    #[asset(path = "bullet.png")]
-    bullet: Handle<Image>,
+    #[asset(path = "HDR_blue_nebulae-1.png")]
+    sky: Handle<Image>,
 }
 
-fn synctest_mode(args: Res<Args>) -> bool {
-    args.synctest
+#[derive(AssetCollection, Resource)]
+struct ModelAssets {
+    #[asset(path = "low_poly_x-wing.glb#Scene0")]
+    xwing: Handle<Scene>,
 }
 
-fn p2p_mode(args: Res<Args>) -> bool {
-    !args.synctest
+#[derive(Resource)]
+struct ModelAssets2 {
+    bullet_mesh: Handle<Mesh>,
+    bullet_material: Handle<StandardMaterial>,
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, button_style: Res<ButtonStyle>,) {
-    // Horizontal lines
-    for i in 0..=MAP_SIZE {
-        commands.spawn(SpriteBundle {
-            transform: Transform::from_translation(Vec3::new(
-                0.,
-                i as f32 - MAP_SIZE as f32 / 2.,
-                0.,
-            )),
-            sprite: Sprite {
-                color: Color::rgb(0.27, 0.27, 0.27),
-                custom_size: Some(Vec2::new(MAP_SIZE as f32, GRID_WIDTH)),
-                ..default()
-            },
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    button_style: Res<ButtonStyle>,
+    images: Res<ImageAssets>,
+    models: Res<ModelAssets>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let camera_init_pos = Vec3::new(0.0, 3.0, -10.0);
+    // camera
+    commands.spawn(Camera3dBundle {
+        transform:
+            Transform::from_translation(camera_init_pos.clone())
+                .looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
+        projection: Projection::Perspective(PerspectiveProjection {
+            far: 100_000.0,
             ..default()
-        });
-    }
+        }),
+        ..default()
+    }).add_rollback();
 
-    // Vertical lines
-    for i in 0..=MAP_SIZE {
-        commands.spawn(SpriteBundle {
-            transform: Transform::from_translation(Vec3::new(
-                i as f32 - MAP_SIZE as f32 / 2.,
-                0.,
-                0.,
-            )),
-            sprite: Sprite {
-                color: Color::rgb(0.27, 0.27, 0.27),
-                custom_size: Some(Vec2::new(GRID_WIDTH, MAP_SIZE as f32)),
-                ..default()
-            },
+    // skybox
+    let material = materials.add(StandardMaterial {
+        base_color_texture: Some(images.sky.clone()),
+        unlit: true,
+        ..default()
+    });
+    let sphere_mesh: Handle<Mesh> = meshes.add(shape::UVSphere {
+        radius: -100.0,
+        ..default()
+    }.into());
+    commands.spawn((
+        Skybox,
+        PbrBundle {
+            mesh: sphere_mesh,
+            material,
+            transform: Transform::from_translation(camera_init_pos),
             ..default()
-        });
-    }
-
-    let mut camera_bundle = Camera2dBundle::default();
-    camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(10.);
-    commands.spawn(camera_bundle);
+        }
+    ));
 
     // Spawn Virtual Joystick at horizontal center
     create_joystick(
@@ -335,7 +390,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, button_style: R
         asset_server.load("outline.png"),
         None,
         None,
-        Some(Color::ORANGE_RED.with_a(0.3)),
+        None,
         Vec2::new(75., 75.),
         Vec2::new(150., 150.),
         VirtualJoystickNode {
@@ -357,7 +412,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, button_style: R
     commands
         .spawn(NodeBundle {
             style: Style {
-                width: Val::Px(250.0),
+                width: Val::Px(100.0),
                 height: Val::Px(100.0),
                 position_type: PositionType::Absolute,
                 right: Val::Percent(10.),
@@ -382,21 +437,204 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, button_style: R
                 ButtonAction::Fire,
                 Interaction::default(),
             ));
-            p.spawn((
-                MaterialNodeBundle {
-                    material: button_style.default_2.clone(),
+        });
+    
+    // load player to use while waiting for players
+    commands
+        .spawn((
+            Player { handle: 0 },
+            BulletReady(true),
+            FaceDir(0.0),
+            Speed(10.0),
+            Acceleration(Vec3::ZERO),
+            SceneBundle {
+                scene: models.xwing.clone(),
+                ..default()
+            },
+        ));
+    
+    
+    commands.spawn((
+        AwaitingPlayersRoot,
+        NodeBundle {
+            z_index: ZIndex::Global(i32::MAX),
+            style: Style {
+                position_type: PositionType::Absolute,
+                top: Val::Percent(1.0),
+                padding: UiRect::all(Val::Px(4.0)),
+                ..default()
+            },
+            ..default()
+        },
+    )).with_children(|parent| {
+        parent
+            .spawn(
+                TextBundle {
+                    text: Text::from_section(
+                        "Awaiting Players",
+                        TextStyle {
+                            font_size: 16.0,
+                            color: Color::WHITE,
+                            ..default()
+                        }
+                    ),
+                    ..default()
+                }
+            );
+    });
+
+    // bullet
+    let bullet_mesh = meshes.add(shape::Box::new(0.3, 0.3, 2.0).into());
+    let bullet_material = materials.add(StandardMaterial {
+        base_color: Color::BLUE,
+        unlit: true,
+        ..default()
+    });
+
+    commands.insert_resource(ModelAssets2 {
+        bullet_mesh,
+        bullet_material,
+    });
+
+    // fullscreen button
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.0),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent
+                .spawn(ButtonBundle {
                     style: Style {
-                        width: Val::Px(100.),
-                        height: Val::Px(100.),
-                        margin: UiRect::left(Val::Px(50.0)),
+                        width: Val::Px(140.0),
+                        height: Val::Px(32.0),
+                        border: UiRect::all(Val::Px(5.0)),
+                        justify_content: JustifyContent::Center,
+                        align_content: AlignContent::Center,
                         ..default()
                     },
+                    border_color: BorderColor(Color::BLACK),
+                    background_color: NORMAL_BUTTON.into(),
                     ..default()
-                },
-                ButtonAction::Thrust,
-                Interaction::default(),
-            ));
+                })
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "Fullscreen",
+                        TextStyle {
+                            font_size: 20.0,
+                            color: Color::rgb(0.9, 0.9, 0.9),
+                            ..default()
+                        }
+                    ));
+                });
         });
+}
+
+const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
+const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
+const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
+
+fn button_system(
+    mut interaction_query: Query<
+        (
+            &Interaction,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &Children,
+        ),
+        (Changed<Interaction>, With<Button>),
+    >,
+    _text_query: Query<&mut Text>,
+) {
+    for (interaction, mut color, mut border_color, _children) in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                go_fullscreen();
+                *color = PRESSED_BUTTON.into();
+                border_color.0 = Color::RED;
+            }
+            Interaction::Hovered => {
+                *color = HOVERED_BUTTON.into();
+                border_color.0 = Color::WHITE;
+            }
+            Interaction::None => {
+                *color = NORMAL_BUTTON.into();
+                border_color.0 = Color::BLACK;
+            }
+        }
+    }
+}
+
+fn move_skybox_with_camera(
+    camera: Query<&Transform, (With<Camera>,Without<Skybox>)>,
+    mut skybox: Query<&mut Transform,With<Skybox>>,
+) {
+    for mut skybox_transform in &mut skybox {
+        for camera_transform in &camera {
+            skybox_transform.translation = camera_transform.translation;
+        }
+    }
+}
+
+fn swap_standard_material(
+    mut commands: Commands,
+    mut material_events: EventReader<AssetEvent<StandardMaterial>>,
+    entites: Query<(Entity, &Handle<StandardMaterial>)>,
+    standard_materials: Res<Assets<StandardMaterial>>,
+    mut custom_materials: ResMut<Assets<CustomStandardMaterial>>,
+) {
+    for event in material_events.read() {
+        let handle = match event {
+            AssetEvent::Added { id } => id,
+            AssetEvent::LoadedWithDependencies { id } => id,
+            _ => continue,
+        };
+        if let Some(material) = standard_materials.get(*handle) {
+            let custom_mat_h = custom_materials.add(CustomStandardMaterial {
+                base_color: material.base_color,
+                base_color_texture: material.base_color_texture.clone(),
+                emissive: material.emissive,
+                emissive_texture: material.emissive_texture.clone(),
+                perceptual_roughness: material.perceptual_roughness,
+                metallic: material.metallic,
+                metallic_roughness_texture: material.metallic_roughness_texture.clone(),
+                reflectance: material.reflectance,
+                normal_map_texture: material.normal_map_texture.clone(),
+                flip_normal_map_y: material.flip_normal_map_y,
+                occlusion_texture: material.occlusion_texture.clone(),
+                double_sided: material.double_sided,
+                cull_mode: material.cull_mode,
+                unlit: material.unlit,
+                fog_enabled: material.fog_enabled,
+                alpha_mode: material.alpha_mode,
+                depth_bias: material.depth_bias,
+                depth_map: material.depth_map.clone(),
+                parallax_depth_scale: material.parallax_depth_scale,
+                parallax_mapping_method: material.parallax_mapping_method,
+                max_parallax_layer_count: material.max_parallax_layer_count,
+                diffuse_transmission: material.diffuse_transmission,
+                specular_transmission: material.specular_transmission,
+                thickness: material.thickness,
+                ior: material.ior,
+                attenuation_distance: material.attenuation_distance,
+                attenuation_color: material.attenuation_color,
+                opaque_render_method: material.opaque_render_method,
+                deferred_lighting_pass_id: material.deferred_lighting_pass_id,
+            });
+            for (entity, entity_mat_h) in entites.iter() {
+                if entity_mat_h.id() == *handle {
+                    let mut ecmds = commands.entity(entity);
+                    ecmds.remove::<Handle<StandardMaterial>>();
+                    ecmds.insert(custom_mat_h.clone());
+                }
+            }
+        }
+    }
 }
 
 /// Updates button materials when their interaction changes
@@ -404,7 +642,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, button_style: R
 fn handle_button_interactions(
     mut interaction_query: Query<
         (&Interaction, &mut Handle<RoundUiMaterial>, &ButtonAction),
-        (Changed<Interaction>),
+        Changed<Interaction>,
     >,
     button_style: Res<ButtonStyle>,
 ) {
@@ -419,10 +657,16 @@ fn handle_button_interactions(
 
 fn spawn_players(
     mut commands: Commands,
+    mut awaiting_players: Query<&mut Visibility, With<AwaitingPlayersRoot>>,
     players: Query<Entity, With<Player>>,
     bullets: Query<Entity, With<Bullet>>,
+    models: Res<ModelAssets>,
 ) {
     info!("Spawning players");
+
+    for mut awaiting_player_visibility in &mut awaiting_players {
+        *awaiting_player_visibility = Visibility::Hidden;
+    }
 
     for player in &players {
         commands.entity(player).despawn_recursive();
@@ -432,64 +676,37 @@ fn spawn_players(
         commands.entity(bullet).despawn_recursive();
     }
 
-    let make_ship_path = || {
-        let mut path_builder = PathBuilder::new();
-        let scale = 0.5;
-        path_builder.move_to(Vec2::new(0.5, 0.0) * scale);
-        path_builder.line_to(Vec2::new(-0.5 ,0.3) * scale);
-        path_builder.line_to(Vec2::new(-0.25, 0.0) * scale);
-        path_builder.line_to(Vec2::new(-0.5, -0.3) * scale);
-        path_builder.close();
-        let path = path_builder.build();
-        return path;
-    };
-
-    let p1_path = make_ship_path();
-    let p2_path = make_ship_path();
-
     // Player 1
     commands
         .spawn((
             Player { handle: 0 },
             BulletReady(true),
-            MoveDir(Vec2::X),
-            FaceDir(std::f32::consts::PI),
-            Velocity(Vec2::ZERO),
-            Acceleration(Vec2::ZERO),
-            ShapeBundle {
-                path: p1_path,
-                spatial: SpatialBundle {
-                    transform: Transform::from_translation(Vec3::new(-2., 0., 100.)),
-                    ..default()
-                },
+            FaceDir(0.0),
+            Speed(10.0),
+            Acceleration(Vec3::ZERO),
+            SceneBundle {
+                scene: models.xwing.clone(),
                 ..default()
             },
-            Stroke::new(Color::BLACK, 0.05),
-            Fill::color(Color::BLUE),
         ))
         .add_rollback();
-
+    
     // Player 2
     commands
         .spawn((
             Player { handle: 1 },
             BulletReady(true),
-            MoveDir(-Vec2::X),
             FaceDir(0.0),
-            Velocity(Vec2::ZERO),
-            Acceleration(Vec2::ZERO),
-            ShapeBundle {
-                path: p2_path,
-                spatial: SpatialBundle {
-                    transform: Transform::from_translation(Vec3::new(2., 0., 100.)),
-                    ..default()
-                },
+            Speed(10.0),
+            Acceleration(Vec3::ZERO),
+            SceneBundle {
+                scene: models.xwing.clone(),
+                transform: Transform::from_translation(Vec3::new(0.0, 2.0, 200.0)).looking_to(Vec3::Z, Vec3::Y),
                 ..default()
             },
-            Stroke::new(Color::BLACK, 0.05),
-            Fill::color(Color::BLUE),
         ))
         .add_rollback();
+
 }
 
 fn start_matchbox_socket(mut commands: Commands, game_config: Res<GameConfig>) {
@@ -545,26 +762,6 @@ fn wait_for_players(
     next_state.set(GameState::InGame);
 }
 
-fn start_synctest_session(mut commands: Commands, mut next_state: ResMut<NextState<GameState>>) {
-    info!("Starting synctest session");
-    let num_players = 2;
-
-    let mut session_builder = ggrs::SessionBuilder::<Config>::new().with_num_players(num_players);
-
-    for i in 0..num_players {
-        session_builder = session_builder
-            .add_player(PlayerType::Local, i)
-            .expect("failed to add player");
-    }
-
-    let ggrs_session = session_builder
-        .start_synctest_session()
-        .expect("failed to start session");
-
-    commands.insert_resource(bevy_ggrs::Session::SyncTest(ggrs_session));
-    next_state.set(GameState::InGame);
-}
-
 fn handle_ggrs_events(mut session: ResMut<Session<Config>>) {
     match session.as_mut() {
         Session::P2P(s) => {
@@ -590,47 +787,48 @@ fn handle_ggrs_events(mut session: ResMut<Session<Config>>) {
 }
 
 fn move_players(
-    mut players: Query<(&mut Transform, &mut Velocity, &mut Acceleration, &mut FaceDir, &Player)>,
-    inputs: Res<PlayerInputs<Config>>,
+    mut players: Query<(&mut Transform, &mut Speed, &mut Acceleration, &mut FaceDir, &Player)>,
+    local_inputs: Option<Res<LocalInputs<Config>>>,
+    inputs: Option<Res<PlayerInputs<Config>>>,
     time: Res<Time>,
+    _cameras: Query<&mut Transform, (With<Camera>, Without<Player>)>,
 ) {
-    for (mut transform, mut velocity , mut acceleration, mut face_dir, player) in &mut players {
-        let (input, _) = inputs[player.handle];
-        let rotate_by = rotate_by(input);
-        face_dir.0 += rotate_by * time.delta_seconds();
-        while face_dir.0 < 0.0 {
-            face_dir.0 += 2.0 * std::f32::consts::PI;
-        }
-        while face_dir.0 >= 2.0 * std::f32::consts::PI {
-            face_dir.0 -= 2.0 * std::f32::consts::PI;
-        }
-        transform.rotation = Quat::from_axis_angle(Vec3::new(0., 0., 1.), face_dir.0);
-        if thrust(input) {
-            acceleration.0 = Vec2::new(face_dir.0.cos(), face_dir.0.sin()) * THRUST_ACCELERATION;
+    for (mut transform, speed , _acceleration, _face_dir, player) in &mut players {
+        let input: [u8; 3];
+        if let Some(inputs) = &inputs {
+            input = inputs[player.handle].0;
+        } else if let Some(inputs) = &local_inputs {
+            input = inputs.0[&player.handle];
         } else {
-            acceleration.0 = Vec2::ZERO;
+            input = [0; 3];
         }
-        velocity.0 += acceleration.0 * time.delta_seconds();
-    }
-    for (mut transform, velocity, _, _, player) in &mut players {
-        let move_speed = 7.;
-        let move_delta = velocity.0 * move_speed * time.delta_seconds();
-
-        let old_pos = transform.translation.xy();
-        let limit = Vec2::splat(MAP_SIZE as f32 / 2. - 0.5);
-        let new_pos = (old_pos + move_delta).clamp(-limit, limit);
-
-        transform.translation.x = new_pos.x;
-        transform.translation.y = new_pos.y;
+        let angular_thrust_pitch = angular_thrust_pitch(input);
+        if angular_thrust_pitch != 0.0 {
+            transform.rotate_local_axis(Vec3::X, angular_thrust_pitch * std::f32::consts::PI / 180.0 * time.delta_seconds());
+        }
+        let angular_thrust_roll = angular_thrust_roll(input);
+        if angular_thrust_roll != 0.0 {
+            transform.rotate_local_axis(Vec3::Z, angular_thrust_roll * std::f32::consts::PI / 180.0 * time.delta_seconds());
+        }
+        let velocity = transform.rotation.mul_vec3(Vec3::Z) * speed.0;
+        transform.translation += velocity * time.delta_seconds();
     }
 }
 
 fn reload_bullet(
-    inputs: Res<PlayerInputs<Config>>,
+    inputs: Option<Res<PlayerInputs<Config>>>,
+    local_inputs: Option<Res<LocalInputs<Config>>>,
     mut players: Query<(&mut BulletReady, &Player)>,
 ) {
     for (mut can_fire, player) in players.iter_mut() {
-        let (input, _) = inputs[player.handle];
+        let input: [u8; 3];
+        if let Some(inputs) = &inputs {
+            input = inputs[player.handle].0;
+        } else if let Some(inputs) = &local_inputs {
+            input = inputs.0[&player.handle];
+        } else {
+            input = [0; 3];
+        }
         if !fire(input) {
             can_fire.0 = true;
         }
@@ -639,43 +837,65 @@ fn reload_bullet(
 
 fn fire_bullets(
     mut commands: Commands,
-    inputs: Res<PlayerInputs<Config>>,
-    images: Res<ImageAssets>,
-    mut players: Query<(&Transform, &Player, &mut BulletReady, &FaceDir)>,
+    inputs: Option<Res<PlayerInputs<Config>>>,
+    local_inputs: Option<Res<LocalInputs<Config>>>,
+    models: Res<ModelAssets2>,
+    mut players: Query<(&Transform, &Player, &mut BulletReady)>,
+    time: Res<Time>,
 ) {
-    for (transform, player, mut bullet_ready, face_dir) in &mut players {
-        let (input, _) = inputs[player.handle];
+    for (transform, player, mut bullet_ready) in &mut players {
+        let input: [u8; 3];
+        if let Some(inputs) = &inputs {
+            input = inputs[player.handle].0;
+        } else if let Some(inputs) = &local_inputs {
+            input = inputs.0[&player.handle];
+        } else {
+            input = [0; 3];
+        }
         if fire(input) && bullet_ready.0 {
-            let move_dir: MoveDir = MoveDir(Vec2::new(face_dir.0.cos(), face_dir.0.sin()));
-            let move_dir = &move_dir;
-            let player_pos = transform.translation.xy();
-            let pos = player_pos + move_dir.0 * PLAYER_RADIUS + BULLET_RADIUS;
-            commands
-                .spawn((
-                    Bullet,
-                    *move_dir,
-                    SpriteBundle {
-                        transform: Transform::from_translation(pos.extend(200.))
-                            .with_rotation(Quat::from_rotation_arc_2d(Vec2::X, move_dir.0)),
-                        texture: images.bullet.clone(),
-                        sprite: Sprite {
-                            custom_size: Some(Vec2::new(0.3, 0.1)),
+            let bullet_transform = *transform * Transform::from_translation(Vec3::new(0.0, 0.0, 2.0));
+            let offset_width: f32 = 2.2;
+            let offset_height: f32 = 1.0;
+            let bullet_offsets: [[f32; 2]; 4] = [
+                [-offset_width, -offset_height],
+                [-offset_width, offset_height],
+                [offset_width, -offset_height],
+                [offset_width, offset_height],
+            ];
+            for bullet_offset in bullet_offsets {
+                commands
+                    .spawn((
+                        Bullet,
+                        BirthTime(time.elapsed_seconds()),
+                        PbrBundle {
+                            transform: bullet_transform * Transform::from_translation(Vec3::new(bullet_offset[0], bullet_offset[1], 0.0)),
+                            mesh: models.bullet_mesh.clone(),
+                            material: models.bullet_material.clone(),
                             ..default()
                         },
-                        ..default()
-                    },
-                ))
-                .add_rollback();
+                    ))
+                    .add_rollback();
+            }
             bullet_ready.0 = false;
         }
     }
 }
 
-fn move_bullet(mut bullets: Query<(&mut Transform, &MoveDir), With<Bullet>>, time: Res<Time>) {
-    for (mut transform, dir) in &mut bullets {
-        let speed = 20.;
-        let delta = dir.0 * speed * time.delta_seconds();
-        transform.translation += delta.extend(0.);
+fn move_bullet(
+    mut commands: Commands,
+    mut bullets: Query<(Entity, &mut Transform, &BirthTime), With<Bullet>>,
+    time: Res<Time>
+) {
+    const BULLET_DIE_IN_SECONDS: f32 = 10.0;
+    for (bullet_entity, mut transform, birth_time) in &mut bullets {
+        let bullet_age = time.elapsed_seconds() - birth_time.0;
+        if bullet_age >= BULLET_DIE_IN_SECONDS {
+            commands.entity(bullet_entity).despawn_recursive();
+        } else {
+            let speed = 200.;
+            let delta = transform.rotation * (Vec3::Z * speed * time.delta_seconds());
+            transform.translation += delta;
+        }
     }
 }
 
@@ -711,21 +931,25 @@ fn kill_players(
 }
 
 fn camera_follow(
-    local_players: Res<LocalPlayers>,
+    local_players: Option<Res<LocalPlayers>>,
     players: Query<(&Player, &Transform)>,
     mut cameras: Query<&mut Transform, (With<Camera>, Without<Player>)>,
+    time: Res<Time>,
 ) {
     for (player, player_transform) in &players {
-        // only follow the local player
-        if !local_players.0.contains(&player.handle) {
-            continue;
+        if let Some(local_players) = &local_players {
+            if !local_players.0.is_empty() {
+                if !local_players.0.contains(&player.handle) {
+                    continue;
+                }
+            }
         }
-
-        let pos = player_transform.translation;
-
         for mut transform in &mut cameras {
-            transform.translation.x = pos.x;
-            transform.translation.y = pos.y;
+            let target = player_transform.transform_point(Vec3::new(0.0, 1.5, -10.0));
+            let delta = (target - transform.translation) * (2.5f32 * time.delta_seconds()).min(1.0);
+            transform.translation += delta;
+            let target_rotation = player_transform.rotation * Quat::from_rotation_y(std::f32::consts::PI);
+            transform.rotation = transform.rotation.lerp(target_rotation, (2.5f32 * time.delta_seconds()).min(1.0));
         }
     }
 }
@@ -750,7 +974,7 @@ fn update_score_ui(mut contexts: EguiContexts, scores: Res<Scores>) {
         .show(contexts.ctx_mut(), |ui| {
             ui.label(
                 RichText::new(format!("{p1_score} - {p2_score}"))
-                    .color(Color32::BLACK)
+                    .color(Color32::RED)
                     .font(FontId::proportional(72.0)),
             );
         });

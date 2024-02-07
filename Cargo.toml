@@ -14,7 +14,7 @@ name = "flying_shooter_lib"
 opt-level = 2
 
 [dependencies]
-bevy = "0.12"
+bevy = "0.12.1"
 bevy_ggrs = { version = "0.14", features = ["wasm-bindgen"] }
 bevy_matchbox = { version = "0.8", features = ["ggrs"] }
 bevy_asset_loader = "0.18"

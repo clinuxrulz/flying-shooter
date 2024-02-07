@@ -1,6 +1,12 @@
 use bevy::{prelude::*, utils::FixedState};
 use std::hash::{BuildHasher, Hash, Hasher};
 
+#[derive(Component)]
+pub struct Skybox;
+
+#[derive(Component)]
+pub struct AwaitingPlayersRoot;
+
 #[derive(Component, Clone, Copy)]
 pub struct Player {
     pub handle: usize,
@@ -13,16 +19,22 @@ pub struct BulletReady(pub bool);
 pub struct Bullet;
 
 #[derive(Component, Clone, Copy)]
+pub struct BirthTime(pub f32);
+
+#[derive(Component, Clone, Copy)]
 pub struct MoveDir(pub Vec2);
 
 #[derive(Component, Clone, Copy)]
 pub struct FaceDir(pub f32);
 
 #[derive(Component, Clone, Copy)]
-pub struct Velocity(pub Vec2);
+pub struct Velocity(pub Vec3);
 
 #[derive(Component, Clone, Copy)]
-pub struct Acceleration(pub Vec2);
+pub struct Speed(pub f32);
+
+#[derive(Component, Clone, Copy)]
+pub struct Acceleration(pub Vec3);
 
 pub fn checksum_face_dir(face_dir: &FaceDir) -> u64 {
     return face_dir.0.to_bits().into();

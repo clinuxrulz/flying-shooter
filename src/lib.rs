@@ -4,6 +4,8 @@ mod args;
 mod components;
 mod input;
 mod game;
+mod fps_plugin;
+mod pbr_material;
 
 #[wasm_bindgen]
 pub fn run_game() {
