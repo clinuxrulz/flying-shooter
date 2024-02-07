@@ -136,9 +136,8 @@ pub fn run_game() {
         .rollback_resource_with_copy::<Scores>()
         .rollback_component_with_clone::<Transform>()
         .rollback_component_with_copy::<BulletReady>()
+        .rollback_component_with_copy::<BirthTime>()
         .rollback_component_with_copy::<Player>()
-        .rollback_component_with_copy::<MoveDir>()
-        .rollback_component_with_copy::<FaceDir>()
         .rollback_component_with_copy::<Velocity>()
         .rollback_component_with_copy::<Acceleration>()
         .rollback_component_with_clone::<Sprite>()
@@ -148,9 +147,6 @@ pub fn run_game() {
         .rollback_component_with_clone::<InheritedVisibility>()
         .rollback_component_with_clone::<ViewVisibility>()
         .checksum_component::<Transform>(checksum_transform)
-        .checksum_component::<FaceDir>(checksum_face_dir)
-        .checksum_component::<Velocity>(checksum_velocity)
-        .checksum_component::<Acceleration>(checksum_acceleration)
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .init_resource::<RoundEndTimer>()
         .init_resource::<Scores>()
@@ -445,7 +441,6 @@ fn setup(
         .spawn((
             Player { handle: 0 },
             BulletReady(true),
-            FaceDir(0.0),
             Speed(10.0),
             Acceleration(Vec3::ZERO),
             SceneBundle {
@@ -738,7 +733,6 @@ fn spawn_players(
         .spawn((
             Player { handle: 0 },
             BulletReady(true),
-            FaceDir(0.0),
             Speed(10.0),
             Acceleration(Vec3::ZERO),
             SceneBundle {
@@ -754,7 +748,6 @@ fn spawn_players(
         .spawn((
             Player { handle: 1 },
             BulletReady(true),
-            FaceDir(0.0),
             Speed(10.0),
             Acceleration(Vec3::ZERO),
             SceneBundle {
@@ -846,13 +839,13 @@ fn handle_ggrs_events(mut session: ResMut<Session<Config>>) {
 }
 
 fn move_players(
-    mut players: Query<(&mut Transform, &mut Speed, &mut Acceleration, &mut FaceDir, &Player)>,
+    mut players: Query<(&mut Transform, &mut Speed, &mut Acceleration, &Player)>,
     local_inputs: Option<Res<LocalInputs<Config>>>,
     inputs: Option<Res<PlayerInputs<Config>>>,
     time: Res<Time>,
     _cameras: Query<&mut Transform, (With<Camera>, Without<Player>)>,
 ) {
-    for (mut transform, speed , _acceleration, _face_dir, player) in &mut players {
+    for (mut transform, speed , _acceleration, player) in &mut players {
         let input: [u8; 3];
         if let Some(inputs) = &inputs {
             input = inputs[player.handle].0;
