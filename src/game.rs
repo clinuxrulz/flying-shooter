@@ -361,7 +361,7 @@ fn setup(
             ..default()
         }),
         ..default()
-    }).add_rollback();
+    });
 
     // skybox
     let material = materials.add(StandardMaterial {
