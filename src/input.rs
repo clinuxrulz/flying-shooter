@@ -13,17 +13,28 @@ const ROTATE_SPEED: f32 = 100.0;
 const PITCH_SPEED: f32 = 100.0;
 const ROLL_SPEED: f32 = 100.0;
 
-pub fn read_local_inputs_prematch(
+pub fn read_local_inputs(
     mut commands: Commands,
     keys: Res<Input<KeyCode>>,
     players: Query<&Player>,
+    local_players: Option<Res<LocalPlayers>>,
     mut joystick: EventReader<VirtualJoystickEvent<String>>,
     interaction_query: Query<(&Interaction, &ButtonAction)>,//, Changed<Interaction>>,
 ) {
-    {
-        let mut local_inputs = HashMap::new();
-        let handle: usize = 0;
-        let handle = &handle;
+    let mut handles: Vec<usize> = Vec::new();
+    if let Some(local_players) = &local_players {
+        if local_players.0.is_empty() {
+            handles.push(0);
+        } else {
+            for handle in &local_players.0 {
+                handles.push(*handle);
+            }
+        }
+    } else {
+        handles.push(0);
+    }
+    let mut local_inputs = HashMap::new();
+    for handle in &handles {
         {
             let mut input: [u8; 3] = [0u8; 3];
             for j in joystick.read() {
@@ -64,11 +75,11 @@ pub fn read_local_inputs_prematch(
             local_inputs.insert(*handle, input);
         }
     
-        commands.insert_resource(LocalInputs::<Config>(local_inputs));
     }
+    commands.insert_resource(LocalInputs::<Config>(local_inputs));
 }
 
-pub fn read_local_inputs(
+pub fn read_local_inputs_(
     mut commands: Commands,
     keys: Res<Input<KeyCode>>,
     local_players: Res<LocalPlayers>,

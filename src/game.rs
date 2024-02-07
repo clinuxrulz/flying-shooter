@@ -165,7 +165,7 @@ pub fn run_game() {
         .insert_resource(LocalInputs::<Config>(HashMap::from_iter(vec![(0, [0, 0, 0])].drain(0..))))
         .add_systems(
             PreUpdate,
-            read_local_inputs_prematch.run_if(in_state(GameState::Matchmaking)),
+            read_local_inputs.run_if(in_state(GameState::Matchmaking)),
         )
         .add_systems(
             Update,
