@@ -953,8 +953,8 @@ fn move_bullet(
     }
 }
 
-const PLAYER_RADIUS: f32 = 0.5;
-const BULLET_RADIUS: f32 = 0.025;
+const PLAYER_RADIUS: f32 = 3.0;
+const BULLET_RADIUS: f32 = 0.5;
 
 fn kill_players(
     mut commands: Commands,
@@ -965,9 +965,9 @@ fn kill_players(
 ) {
     for (player_entity, player_transform, player) in &players {
         for bullet_transform in &bullets {
-            let distance = Vec2::distance(
-                player_transform.translation.xy(),
-                bullet_transform.translation.xy(),
+            let distance = Vec3::distance(
+                player_transform.translation,
+                bullet_transform.translation,
             );
             if distance < PLAYER_RADIUS + BULLET_RADIUS {
                 commands.entity(player_entity).despawn_recursive();
