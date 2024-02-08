@@ -177,7 +177,7 @@ pub fn run_game() {
             Update,
             (
                 (
-                    camera_follow,
+                    camera_follow.after(move_players),
                     move_skybox_with_camera.after(camera_follow),
                 ),
                 (
