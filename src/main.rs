@@ -4,6 +4,7 @@ mod input;
 mod game;
 mod fps_plugin;
 mod pbr_material;
+mod radar;
 
 pub fn main() {
     game::run_game();

@@ -6,6 +6,7 @@ mod input;
 mod game;
 mod fps_plugin;
 mod pbr_material;
+mod radar;
 
 #[wasm_bindgen]
 pub fn run_game() {

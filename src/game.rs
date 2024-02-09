@@ -1,4 +1,4 @@
-use crate::{args::Args, fps_plugin::FpsPlugin, pbr_material::CustomStandardMaterial};
+use crate::{args::Args, fps_plugin::FpsPlugin, pbr_material::CustomStandardMaterial, radar::update_radar_ui};
 use bevy::{prelude::*, scene::SceneInstance, utils::HashMap};
 use bevy_asset_loader::prelude::*;
 use bevy_egui::{
@@ -171,6 +171,7 @@ pub fn run_game() {
                 swap_standard_material,
                 customize_scene_materials,
                 button_system,
+                update_radar_ui,
             ),
         )
         .add_systems(
