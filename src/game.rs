@@ -978,7 +978,8 @@ fn kill_players(
                 } else {
                     scores.0 += 1;
                 }
-                info!("player died: {scores:?}")
+                info!("player died: {scores:?}");
+                break;
             }
         }
     }
