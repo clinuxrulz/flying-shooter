@@ -179,8 +179,6 @@ pub fn run_game() {
                 (
                     camera_follow.after(move_players),
                     move_skybox_with_camera.after(camera_follow),
-                ),
-                (
                     move_players,
                     reload_bullet,
                     fire_bullets.after(move_players).after(reload_bullet),
@@ -218,6 +216,8 @@ pub fn run_game() {
         .add_systems(
             GgrsSchedule,
             (
+                camera_follow.after(move_players).after(move_bullet).ambiguous_with(kill_players),
+                move_skybox_with_camera.after(camera_follow).ambiguous_with(kill_players),
                 move_players,
                 reload_bullet,
                 fire_bullets.after(move_players).after(reload_bullet),
