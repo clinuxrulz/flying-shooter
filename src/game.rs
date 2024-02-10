@@ -143,6 +143,8 @@ pub fn run_game() {
         .rollback_component_with_copy::<Velocity>()
         .rollback_component_with_copy::<Acceleration>()
         .rollback_component_with_clone::<Sprite>()
+        .rollback_component_with_clone::<Handle<Mesh>>()
+        .rollback_component_with_clone::<Handle<CustomStandardMaterial>>()
         .rollback_component_with_clone::<GlobalTransform>()
         .rollback_component_with_clone::<Handle<Image>>()
         .rollback_component_with_clone::<Visibility>()
@@ -338,7 +340,7 @@ struct ModelAssets {
 #[derive(Resource)]
 struct ModelAssets2 {
     bullet_mesh: Handle<Mesh>,
-    bullet_material: Handle<StandardMaterial>,
+    bullet_material: Handle<CustomStandardMaterial>,
 }
 
 fn setup(
@@ -348,7 +350,7 @@ fn setup(
     images: Res<ImageAssets>,
     models: Res<ModelAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<Assets<CustomStandardMaterial>>,
 ) {
     let camera_init_pos = Vec3::new(0.0, 3.0, -10.0);
     // camera
@@ -364,7 +366,7 @@ fn setup(
     });
 
     // skybox
-    let material = materials.add(StandardMaterial {
+    let material = materials.add(CustomStandardMaterial {
         base_color_texture: Some(images.sky.clone()),
         unlit: true,
         ..default()
@@ -375,12 +377,12 @@ fn setup(
     }.into());
     commands.spawn((
         Skybox,
-        PbrBundle {
+        MaterialMeshBundle::<CustomStandardMaterial> {
             mesh: sphere_mesh,
             material,
             transform: Transform::from_translation(camera_init_pos),
             ..default()
-        }
+        },
     ));
 
     // Spawn Virtual Joystick at horizontal center
@@ -485,7 +487,7 @@ fn setup(
 
     // bullet
     let bullet_mesh = meshes.add(shape::Box::new(0.3, 0.3, 2.0).into());
-    let bullet_material = materials.add(StandardMaterial {
+    let bullet_material = materials.add(CustomStandardMaterial {
         base_color: Color::BLUE,
         unlit: true,
         ..default()
@@ -922,7 +924,7 @@ fn fire_bullets(
                     .spawn((
                         Bullet,
                         BirthTime(time.elapsed_seconds()),
-                        PbrBundle {
+                        MaterialMeshBundle::<CustomStandardMaterial> {
                             transform: bullet_transform * Transform::from_translation(Vec3::new(bullet_offset[0], bullet_offset[1], 0.0)),
                             mesh: models.bullet_mesh.clone(),
                             material: models.bullet_material.clone(),
