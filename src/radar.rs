@@ -84,7 +84,10 @@ fn update_radar_ui(
         let p1 = local_transform.translation;
         let p2 = transform.translation;
         let d1 = p2 - p1;
-        let radius = 75.0 * d1.normalize().dot(local_transform.rotation.mul_vec3(Vec3::Z)).acos().abs() / std::f32::consts::PI;
+        let mut radius = 75.0 * d1.normalize().dot(local_transform.rotation.mul_vec3(Vec3::Z)).acos().abs() / std::f32::consts::PI;
+        if !radius.is_finite() {
+            radius = 0.0;
+        }
         let angle: f32;
         if radius >= 74.9 {
             angle = 0.0;
