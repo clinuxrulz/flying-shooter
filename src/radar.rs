@@ -10,7 +10,7 @@ impl Plugin for RadarPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app
             .add_systems(Startup, setup_radar_ui)
-            .add_systems(Update, update_radar_ui);
+            ;//.add_systems(Update, update_radar_ui);
     }
 }
 
