@@ -10,7 +10,7 @@ impl Plugin for RadarPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app
             .add_systems(Startup, setup_radar_ui)
-            ;//.add_systems(Update, update_radar_ui);
+            .add_systems(Update, update_radar_ui);
     }
 }
 
@@ -85,7 +85,9 @@ fn update_radar_ui(
         let d1 = p2 - p1;
         let radius = 75.0 * d1.normalize().dot(local_transform.rotation.mul_vec3(Vec3::Z)).acos().abs() / std::f32::consts::PI;
         let angle: f32;
-        if radius >= 1.0 {
+        if radius >= 74.9 {
+            angle = 0.0;
+        } else if radius >= 1.0 {
             let d2 = Vec2::new(
                 local_transform.rotation.mul_vec3(Vec3::X).dot(d1),
                 local_transform.rotation.mul_vec3(Vec3::Y).dot(d1),
