@@ -92,7 +92,7 @@ fn update_radar_ui(
                 local_transform.rotation.mul_vec3(Vec3::X).dot(d1),
                 local_transform.rotation.mul_vec3(Vec3::Y).dot(d1),
             );
-            angle = d2.y.atan2(d2.x);
+            angle = std::f32::consts::PI - d2.y.atan2(d2.x);
         } else {
             angle = 0.0;
         }
