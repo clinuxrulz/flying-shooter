@@ -10,7 +10,7 @@ impl Plugin for RadarPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         app
             .add_systems(Startup, setup_radar_ui)
-            ;//.add_systems(Update, update_radar_ui);
+            .add_systems(Update, update_radar_ui);
     }
 }
 
@@ -72,10 +72,9 @@ fn update_radar_ui(
     }
     if !local_player_found {
         for (blip_entity, bip, _) in &blips {
-            if bip.index >= index {
-                commands.entity(blip_entity).despawn();
-            }
+            commands.entity(blip_entity).despawn();
         }
+        return;
     }
     for (transform, player) in &players {
         if local_players.0.contains(&player.handle) {
@@ -85,11 +84,16 @@ fn update_radar_ui(
         let p2 = transform.translation;
         let d1 = p2 - p1;
         let radius = 75.0 * d1.normalize().dot(local_transform.rotation.mul_vec3(Vec3::Z)).acos().abs() / std::f32::consts::PI;
-        let d2 = Vec2::new(
-            local_transform.rotation.mul_vec3(Vec3::X).dot(d1),
-            local_transform.rotation.mul_vec3(Vec3::Y).dot(d1),
-        );
-        let angle = d2.y.atan2(d2.x);
+        let angle: f32;
+        if radius >= 1.0 {
+            let d2 = Vec2::new(
+                local_transform.rotation.mul_vec3(Vec3::X).dot(d1),
+                local_transform.rotation.mul_vec3(Vec3::Y).dot(d1),
+            );
+            angle = d2.y.atan2(d2.x);
+        } else {
+            angle = 0.0;
+        }
         let blip_pos = Vec2::new(
             75.0 + angle.cos() * radius,
             75.0 - angle.sin() * radius,
@@ -116,8 +120,8 @@ fn update_radar_ui(
                                     width: Val::Px(10.0),
                                     height: Val::Px(10.0),
                                     position_type: PositionType::Absolute,
-                                    //left: Val::Px(blip_pos.x - 5.0),
-                                    //top: Val::Px(blip_pos.y - 5.0),
+                                    left: Val::Px(blip_pos.x - 5.0),
+                                    top: Val::Px(blip_pos.y - 5.0),
                                     ..default()
                                 },
                                 background_color: BackgroundColor(Color::RED),
