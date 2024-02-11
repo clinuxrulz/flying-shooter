@@ -1,6 +1,7 @@
 use bevy::{app::{Plugin, Startup, Update}, asset::AssetServer, ecs::{entity::Entity, system::{Commands, Query, Res}}, hierarchy::BuildChildren, math::{Vec2, Vec3}, prelude::default, render::color::Color, transform::components::Transform, ui::{node_bundles::{ImageBundle, NodeBundle}, BackgroundColor, PositionType, Style, UiImage, Val}};
 use bevy::ecs::component::Component;
 use bevy_ggrs::LocalPlayers;
+use bevy::prelude::DespawnRecursiveExt;
 
 use crate::components::Player;
 
@@ -72,7 +73,7 @@ fn update_radar_ui(
     }
     if !local_player_found {
         for (blip_entity, bip, _) in &blips {
-            commands.entity(blip_entity).despawn();
+            commands.entity(blip_entity).despawn_recursive();
         }
         return;
     }
@@ -138,7 +139,7 @@ fn update_radar_ui(
     }
     for (blip_entity, bip, _) in &blips {
         if bip.index >= index {
-            commands.entity(blip_entity).despawn();
+            commands.entity(blip_entity).despawn_recursive();
         }
     }
 }
