@@ -13,6 +13,11 @@ pub struct Player {
 }
 
 #[derive(Component, Clone, Copy)]
+pub struct FollowPlayer {
+    pub target_player_handle: usize,
+}
+
+#[derive(Component, Clone, Copy)]
 pub struct BulletReady(pub bool);
 
 #[derive(Component)]

@@ -448,6 +448,13 @@ fn setup(
             BulletReady(true),
             Speed(SHIP_SPEED),
             Acceleration(Vec3::ZERO),
+            Transform::IDENTITY,
+        ));
+    
+    // Player 1 3D Model
+    commands
+        .spawn((
+            FollowPlayer { target_player_handle: 0, },
             SceneBundle {
                 scene: models.xwing.clone(),
                 ..default()
@@ -455,6 +462,17 @@ fn setup(
             CustomizeMaterial,
         ));
     
+    // Player 2 3D Model
+    commands
+        .spawn((
+            FollowPlayer { target_player_handle: 1, },
+            SceneBundle {
+                scene: models.xwing.clone(),
+                visibility: Visibility::Hidden,
+                ..default()
+            },
+            CustomizeMaterial,
+        ));
     
     commands.spawn((
         AwaitingPlayersRoot,
@@ -740,11 +758,7 @@ fn spawn_players(
             BulletReady(true),
             Speed(SHIP_SPEED),
             Acceleration(Vec3::ZERO),
-            SceneBundle {
-                scene: models.xwing.clone(),
-                ..default()
-            },
-            CustomizeMaterial,
+            Transform::IDENTITY,
         ))
         .add_rollback();
     
@@ -755,12 +769,7 @@ fn spawn_players(
             BulletReady(true),
             Speed(SHIP_SPEED),
             Acceleration(Vec3::ZERO),
-            SceneBundle {
-                scene: models.xwing.clone(),
-                transform: Transform::from_translation(Vec3::new(0.0, 20.0, 1_000.0)).looking_to(Vec3::Z, Vec3::Y),
-                ..default()
-            },
-            CustomizeMaterial,
+            Transform::from_translation(Vec3::new(0.0, 20.0, 1_000.0)).looking_to(Vec3::Z, Vec3::Y),
         ))
         .add_rollback();
 
@@ -844,12 +853,13 @@ fn handle_ggrs_events(mut session: ResMut<Session<Config>>) {
 }
 
 fn move_players(
-    mut players: Query<(&mut Transform, &mut Speed, &mut Acceleration, &Player)>,
+    mut players: Query<(&mut Transform, &mut Speed, &mut Acceleration, &Player), Without<FollowPlayer>>,
+    mut follow_players: Query<(&mut Transform, &mut Visibility, &FollowPlayer), With<FollowPlayer>>,
     local_inputs: Option<Res<LocalInputs<Config>>>,
     inputs: Option<Res<PlayerInputs<Config>>>,
     time: Res<Time>,
-    _cameras: Query<&mut Transform, (With<Camera>, Without<Player>)>,
 ) {
+    // move players
     for (mut transform, speed , _acceleration, player) in &mut players {
         let input: [u8; 3];
         if let Some(inputs) = &inputs {
@@ -869,6 +879,19 @@ fn move_players(
         }
         let velocity = transform.rotation.mul_vec3(Vec3::Z) * speed.0;
         transform.translation += velocity * time.delta_seconds();
+    }
+    // update model positions/visibility
+    for (mut transform, mut visibility, follow_player) in &mut follow_players {
+        let mut player_found: bool = false;
+        for (player_transform, _, _, player) in &players {
+            if player.handle != follow_player.target_player_handle {
+                continue;
+            }
+            *transform = *player_transform;
+            player_found = true;
+            break;
+        }
+        *visibility = if player_found { Visibility::Visible } else { Visibility::Hidden };
     }
 }
 
