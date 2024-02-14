@@ -872,7 +872,7 @@ fn move_players(
             }
             *transform = *player_transform;
             if let Some(local_players) = &local_players {
-                if !local_players.0.contains(&player.handle) {
+                if !local_players.0.is_empty() && !local_players.0.contains(&player.handle) {
                     transform.translation = crate::math::finite_cube_point_to_closest_visible_location(observer_pos, transform.translation);
                 }
             }
@@ -954,12 +954,14 @@ fn move_bullet(
     time: Res<Time>
 ) {
     let mut observer_pos = Vec3::ZERO;
-    if let Some(local_players) = &local_players {
-        for (player_transform, player) in &players {
-            if local_players.0.contains(&player.handle) {
+    for (player_transform, player) in &players {
+        if let Some(local_players) = &local_players {
+            if local_players.0.is_empty() || local_players.0.contains(&player.handle) {
                 observer_pos = player_transform.translation;
                 break;
             }
+        } else {
+            observer_pos = player_transform.translation;
         }
     }
     const BULLET_DIE_IN_SECONDS: f32 = 10.0;
