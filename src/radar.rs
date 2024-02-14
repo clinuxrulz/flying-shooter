@@ -72,7 +72,7 @@ fn update_radar_ui(
         }
     }
     if !local_player_found {
-        for (blip_entity, bip, _) in &blips {
+        for (blip_entity, _, _) in &blips {
             commands.entity(blip_entity).despawn_recursive();
         }
         return;
@@ -82,7 +82,7 @@ fn update_radar_ui(
             continue;
         }
         let p1 = local_transform.translation;
-        let p2 = transform.translation;
+        let p2 = crate::math::finite_cube_point_to_closest_visible_location(p1, transform.translation);
         let d1 = p2 - p1;
         let mut radius = 75.0 * d1.normalize().dot(local_transform.rotation.mul_vec3(Vec3::Z)).acos().abs() / std::f32::consts::PI;
         if !radius.is_finite() {
@@ -140,8 +140,8 @@ fn update_radar_ui(
         }
         index += 1;
     }
-    for (blip_entity, bip, _) in &blips {
-        if bip.index >= index {
+    for (blip_entity, blip, _) in &blips {
+        if blip.index >= index {
             commands.entity(blip_entity).despawn_recursive();
         }
     }

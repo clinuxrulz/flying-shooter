@@ -2451,6 +2451,7 @@ dependencies = [
  "bevy_roll_safe",
  "bevy_round_ui",
  "clap",
+ "smallvec",
  "virtual_joystick",
  "wasm-bindgen",
 ]

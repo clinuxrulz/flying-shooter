@@ -92,7 +92,7 @@ pub fn run_game() {
         room_url: default_room_url.into(),
     };
 
-    /*
+    #[cfg(target_family = "wasm")]
     {
         let url_params2 = url_params();
         for x in url_params2 {
@@ -104,7 +104,7 @@ pub fn run_game() {
                 game_config.room_url = y[1].into();
             }
         }
-    }*/
+    }
 
     App::new()
         .insert_resource(args)
@@ -143,14 +143,6 @@ pub fn run_game() {
         .rollback_component_with_copy::<Player>()
         .rollback_component_with_copy::<Velocity>()
         .rollback_component_with_copy::<Acceleration>()
-        .rollback_component_with_clone::<Sprite>()
-        .rollback_component_with_clone::<Handle<Mesh>>()
-        .rollback_component_with_clone::<Handle<CustomStandardMaterial>>()
-        .rollback_component_with_clone::<GlobalTransform>()
-        .rollback_component_with_clone::<Handle<Image>>()
-        .rollback_component_with_clone::<Visibility>()
-        .rollback_component_with_clone::<InheritedVisibility>()
-        .rollback_component_with_clone::<ViewVisibility>()
         .checksum_component::<Transform>(checksum_transform)
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .init_resource::<RoundEndTimer>()
@@ -194,25 +186,6 @@ pub fn run_game() {
                 ).run_if(in_state(GameState::InGame)),
             ),
         )
-        //
-        /*
-        .add_systems(
-            OnEnter(GameState::Matchmaking),
-            (setup, start_matchbox_socket.run_if(p2p_mode)),
-        )
-        .add_systems(
-            Update,
-            (
-                (
-                    wait_for_players.run_if(p2p_mode),
-                    start_synctest_session.run_if(synctest_mode),
-                )
-                    .run_if(in_state(GameState::Matchmaking)),
-                (camera_follow, update_score_ui, handle_ggrs_events)
-                    .run_if(in_state(GameState::InGame)),
-            ),
-        )
-        */
         .add_systems(ReadInputs, read_local_inputs)
         .add_systems(Update, handle_button_interactions)
         .add_systems(OnEnter(RollbackState::InRound), spawn_players)
@@ -735,7 +708,6 @@ fn spawn_players(
     mut awaiting_players: Query<&mut Visibility, With<AwaitingPlayersRoot>>,
     players: Query<Entity, With<Player>>,
     bullets: Query<Entity, With<Bullet>>,
-    models: Res<ModelAssets>,
 ) {
     info!("Spawning players");
 
@@ -853,12 +825,22 @@ fn handle_ggrs_events(mut session: ResMut<Session<Config>>) {
 }
 
 fn move_players(
+    local_players: Option<Res<LocalPlayers>>,
     mut players: Query<(&mut Transform, &mut Speed, &mut Acceleration, &Player), Without<FollowPlayer>>,
     mut follow_players: Query<(&mut Transform, &mut Visibility, &FollowPlayer), With<FollowPlayer>>,
     local_inputs: Option<Res<LocalInputs<Config>>>,
     inputs: Option<Res<PlayerInputs<Config>>>,
     time: Res<Time>,
 ) {
+    let mut observer_pos = Vec3::ZERO;
+    if let Some(local_players) = &local_players {
+        for (player_transform, _, _, player) in &players {
+            if local_players.0.contains(&player.handle) {
+                observer_pos = player_transform.translation;
+                break;
+            }
+        }
+    }
     // move players
     for (mut transform, speed , _acceleration, player) in &mut players {
         let input: [u8; 3];
@@ -879,6 +861,7 @@ fn move_players(
         }
         let velocity = transform.rotation.mul_vec3(Vec3::Z) * speed.0;
         transform.translation += velocity * time.delta_seconds();
+        transform.translation = crate::math::warp_infinite_space_into_finite_cube(transform.translation);
     }
     // update model positions/visibility
     for (mut transform, mut visibility, follow_player) in &mut follow_players {
@@ -888,6 +871,11 @@ fn move_players(
                 continue;
             }
             *transform = *player_transform;
+            if let Some(local_players) = &local_players {
+                if !local_players.0.contains(&player.handle) {
+                    transform.translation = crate::math::finite_cube_point_to_closest_visible_location(observer_pos, transform.translation);
+                }
+            }
             player_found = true;
             break;
         }
@@ -919,7 +907,6 @@ fn fire_bullets(
     mut commands: Commands,
     inputs: Option<Res<PlayerInputs<Config>>>,
     local_inputs: Option<Res<LocalInputs<Config>>>,
-    models: Res<ModelAssets2>,
     mut players: Query<(&Transform, &Player, &mut BulletReady)>,
     time: Res<Time>,
 ) {
@@ -943,16 +930,12 @@ fn fire_bullets(
                 [offset_width, offset_height],
             ];
             for bullet_offset in bullet_offsets {
+                let transform = bullet_transform * Transform::from_translation(Vec3::new(bullet_offset[0], bullet_offset[1], 0.0));
                 commands
                     .spawn((
                         Bullet,
                         BirthTime(time.elapsed_seconds()),
-                        MaterialMeshBundle::<CustomStandardMaterial> {
-                            transform: bullet_transform * Transform::from_translation(Vec3::new(bullet_offset[0], bullet_offset[1], 0.0)),
-                            mesh: models.bullet_mesh.clone(),
-                            material: models.bullet_material.clone(),
-                            ..default()
-                        },
+                        transform,
                     ))
                     .add_rollback();
             }
@@ -963,10 +946,24 @@ fn fire_bullets(
 
 fn move_bullet(
     mut commands: Commands,
+    local_players: Option<Res<LocalPlayers>>,
+    players: Query<(&mut Transform, &Player), Without<Bullet>>,
     mut bullets: Query<(Entity, &mut Transform, &BirthTime), With<Bullet>>,
+    mut bullet_meshes: Query<(Entity, &mut Transform, &FollowBullet), (Without<Bullet>, Without<Player>)>,
+    models: Res<ModelAssets2>,
     time: Res<Time>
 ) {
+    let mut observer_pos = Vec3::ZERO;
+    if let Some(local_players) = &local_players {
+        for (player_transform, player) in &players {
+            if local_players.0.contains(&player.handle) {
+                observer_pos = player_transform.translation;
+                break;
+            }
+        }
+    }
     const BULLET_DIE_IN_SECONDS: f32 = 10.0;
+    let mut bullet_transforms: Vec<(Transform,bool)> = Vec::new();
     for (bullet_entity, mut transform, birth_time) in &mut bullets {
         let bullet_age = time.elapsed_seconds() - birth_time.0;
         if bullet_age >= BULLET_DIE_IN_SECONDS {
@@ -975,7 +972,33 @@ fn move_bullet(
             let speed = 200.;
             let delta = transform.rotation * (Vec3::Z * speed * time.delta_seconds());
             transform.translation += delta;
+            transform.translation = crate::math::warp_infinite_space_into_finite_cube(transform.translation);
+            bullet_transforms.push((*transform, false));
         }
+    }
+    for (bullet_mesh_entity, mut bullet_mesh_transform, follow_bullet) in &mut bullet_meshes {
+        if follow_bullet.index >= bullet_transforms.len() {
+            commands.entity(bullet_mesh_entity).despawn_recursive();
+            continue;
+        }
+        *bullet_mesh_transform = bullet_transforms[follow_bullet.index].0;
+        bullet_mesh_transform.translation = crate::math::finite_cube_point_to_closest_visible_location(observer_pos, bullet_mesh_transform.translation);
+        bullet_transforms[follow_bullet.index].1 = true;
+    }
+    let mut index: usize = 0;
+    for bullet_transform in bullet_transforms {
+        if !bullet_transform.1 {
+            commands.spawn((
+                FollowBullet { index, },
+                MaterialMeshBundle::<CustomStandardMaterial> {
+                    transform: bullet_transform.0,
+                    mesh: models.bullet_mesh.clone(),
+                    material: models.bullet_material.clone(),
+                    ..default()
+                },
+            ));
+        }
+        index += 1;
     }
 }
 
@@ -991,9 +1014,13 @@ fn kill_players(
 ) {
     for (player_entity, player_transform, player) in &players {
         for bullet_transform in &bullets {
+            let bullet_pos = crate::math::finite_cube_point_to_closest_visible_location(
+                player_transform.translation,
+                crate::math::warp_infinite_space_into_finite_cube(bullet_transform.translation)
+            );
             let distance = Vec3::distance(
                 player_transform.translation,
-                bullet_transform.translation,
+                bullet_pos,
             );
             if distance < PLAYER_RADIUS + BULLET_RADIUS {
                 commands.entity(player_entity).despawn_recursive();
@@ -1026,6 +1053,10 @@ fn camera_follow(
             }
         }
         for mut transform in &mut cameras {
+            transform.translation = crate::math::finite_cube_point_to_closest_visible_location(
+                player_transform.translation,
+                crate::math::warp_infinite_space_into_finite_cube(transform.translation)
+            );
             let target = player_transform.transform_point(Vec3::new(0.0, 1.5, -10.0));
             let delta = (target - transform.translation) * (10.0f32 * time.delta_seconds()).min(1.0);
             transform.translation += delta;

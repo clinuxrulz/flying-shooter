@@ -1,6 +1,6 @@
 use bevy::math::Vec3;
 
-const FINITE_CUBE_SIZE: f32 = 1024.0;
+const FINITE_CUBE_SIZE: f32 = 1024.0 * 4.0;
 
 pub fn warp_infinite_space_into_finite_cube(p: Vec3) -> Vec3 {
     let mut x = p.x % FINITE_CUBE_SIZE;
